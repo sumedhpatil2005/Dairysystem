@@ -13,6 +13,5 @@ public class Product {
 
     private String name;
     private String unit;
-
-    private BigDecimal pricePerUnit;
+    private  double pricePerUnit;
 }

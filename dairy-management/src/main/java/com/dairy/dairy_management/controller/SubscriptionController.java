@@ -2,6 +2,7 @@ package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.entity.Subscription;
 import com.dairy.dairy_management.service.SubscriptionService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,11 +17,11 @@ public class SubscriptionController {
         this.service = service;
     }
 
+
     @PostMapping
-    public Subscription create(@RequestBody Subscription sub) {
+    public Subscription create(@Valid @RequestBody Subscription sub) {
         return service.create(sub);
     }
-
     @GetMapping("/customer/{id}")
     public List<Subscription> getByCustomer(@PathVariable Long id) {
         return service.getByCustomerId(id);

@@ -26,5 +26,20 @@ public class CustomerService {
 
         public Customer getById(Long id) { return repo.findById(id) .orElseThrow(() -> new RuntimeException("Customer not found")); }
 
-    }
 
+
+public Customer update(Long id, Customer updated) {
+    Customer existing = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+    existing.setName(updated.getName());
+    existing.setPhone(updated.getPhone());
+
+    return repo.save(existing);
+}
+public void delete(Long id) {
+    if (!repo.existsById(id)) {
+        throw new RuntimeException("Customer not found");
+    }
+    repo.deleteById(id);
+}}
