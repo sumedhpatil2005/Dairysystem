@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" version="29.6.4">
+  <diagram name="Page-1" id="zKMkFC3ZezLCV-488Ony">
+    <mxGraphModel dx="1042" dy="601" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="j_mlUTXGiSawyGMKOntP-15" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-2" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;fontStyle=1" value="user&lt;br&gt;&lt;br&gt;id&lt;br&gt;name&lt;br&gt;phone&lt;br&gt;role(admin/dp)" vertex="1">
+          <mxGeometry height="110" width="110" x="240" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-16" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-4" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Delivery-Line&lt;br&gt;&lt;br&gt;id&lt;br&gt;name&lt;br&gt;&lt;br&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="110" width="110" x="240" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-17" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-5" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Customer&lt;br&gt;&lt;br&gt;id&lt;br&gt;name&lt;br&gt;phone&lt;br&gt;address&lt;br&gt;society&lt;br&gt;Wing&lt;br&gt;delivery-Line Id&lt;/b&gt;" vertex="1">
+          <mxGeometry height="140" width="140" x="225" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-18" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-8" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-6" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;fontStyle=0" value="&lt;b&gt;Subscription&lt;br&gt;&lt;br&gt;ID&lt;br&gt;CustID&lt;br&gt;ProdID&lt;br&gt;Quantity&lt;br&gt;ScheduleType&lt;br&gt;StartDate&lt;br&gt;EndDate&lt;/b&gt;" vertex="1">
+          <mxGeometry height="140" width="140" x="225" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-19" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-8" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;fontStyle=1" value="Delivery&lt;br&gt;&lt;br&gt;ID&lt;br&gt;CustID&lt;br&gt;SubsID&lt;br&gt;Date&lt;br&gt;quantity&lt;br&gt;Status" vertex="1">
+          <mxGeometry height="150" width="150" x="225" y="870" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-20" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-11" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-9" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Bill&lt;br&gt;&lt;br&gt;ID&amp;nbsp;&lt;/b&gt;&lt;div&gt;&lt;b&gt;CustID&lt;br&gt;Month&lt;br&gt;totalAmount&lt;br&gt;status&lt;br&gt;version&lt;br&gt;&lt;br&gt;&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="145" width="145" x="230" y="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-21" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-11" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Bill-Item&lt;br&gt;&lt;br&gt;id&lt;br&gt;bill-ID&lt;br&gt;type&lt;br&gt;desciption&lt;br&gt;quantity&lt;br&gt;price&lt;br&gt;total&lt;/b&gt;" vertex="1">
+          <mxGeometry height="140" width="140" x="235" y="1280" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-22" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-13" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-12" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Payment&lt;br&gt;&lt;br&gt;ID&lt;br&gt;CustID&lt;br&gt;Bill-ID&lt;br&gt;Amount&lt;br&gt;Date&amp;nbsp;&lt;br&gt;Status&lt;/b&gt;" vertex="1">
+          <mxGeometry height="140" width="140" x="240" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-23" edge="1" parent="1" source="j_mlUTXGiSawyGMKOntP-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="j_mlUTXGiSawyGMKOntP-14" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-13" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;fontStyle=1" value="Product&lt;br&gt;&lt;br&gt;ID&lt;br&gt;Name&lt;br&gt;Price&lt;br&gt;&lt;div&gt;&lt;br/&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="130" width="130" x="250" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="j_mlUTXGiSawyGMKOntP-14" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="&lt;b&gt;Add-On-Order&lt;br&gt;&lt;br&gt;ID&lt;br&gt;CustID&lt;br&gt;ProdID&lt;br&gt;Quantity&lt;br&gt;Date&lt;/b&gt;" vertex="1">
+          <mxGeometry height="140" width="140" x="240" y="1860" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
