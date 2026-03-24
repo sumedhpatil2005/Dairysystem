@@ -4,6 +4,7 @@ package com.dairy.dairy_management.controller;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.entity.Delivery;
+import com.dairy.dairy_management.repository.BillingRepository;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.DeliveryService;
 import jakarta.validation.Valid;
@@ -14,13 +15,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/billing")
 public class BillingController {
-
+    private final BillingRepository billingRepo;
     private final BillingService service;
 
-    public BillingController(BillingService service) {
+    public BillingController(BillingService service, BillingRepository billingRepo) {
         this.service = service;
+        this.billingRepo = billingRepo;
     }
-
+    @GetMapping("/{id}")
+    public Billing getBill(@PathVariable Long id) {
+        return billingRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Bill not found"));
+    }
     @PostMapping("/generate")
     public Billing generate(@RequestParam Long customerId,
                             @RequestParam int month,

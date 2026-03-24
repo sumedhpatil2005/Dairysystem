@@ -7,7 +7,8 @@ import jakarta.persistence.*;
 @Data
 @Entity
 public class Billing {
-
+    private double paidAmount = 0;
+    private double remainingAmount = 0;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
