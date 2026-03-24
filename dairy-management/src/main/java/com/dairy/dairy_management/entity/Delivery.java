@@ -16,7 +16,6 @@ public class Delivery {
 
     @ManyToOne
     @NotNull(message = "Subscription is required")
-    @JsonIgnore
     private Subscription subscription;
 
     @NotNull(message = "Delivery date is required")
