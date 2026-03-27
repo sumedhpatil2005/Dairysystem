@@ -7,6 +7,9 @@ import com.dairy.dairy_management.entity.Delivery;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.DeliveryService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,8 +45,7 @@ public class DeliveryController {
 
     /**
      * Auto-generate delivery records for all active subscriptions on a given date.
-     * Defaults to today if no date param is provided.
-     * Example: POST /deliveries/generate?date=2025-01-15
+     * Example: POST /deliveries/generate?date=2026-03-27
      */
     @PostMapping("/generate")
     public GenerateDeliveryResult generateForDate(
@@ -55,7 +57,7 @@ public class DeliveryController {
 
     /**
      * Update delivery status (used by Flutter delivery partner app).
-     * Valid statuses: PENDING, DELIVERED, SKIPPED, NOT_REACHABLE
+     * Enforces allowed transitions — see DeliveryService.updateStatus() for details.
      * Example: PATCH /deliveries/5/status  { "status": "DELIVERED" }
      */
     @PatchMapping("/{id}/status")
@@ -65,13 +67,15 @@ public class DeliveryController {
     }
 
     /**
-     * Get all deliveries for a specific date.
-     * Example: GET /deliveries/date/2025-01-15
+     * Get all deliveries for a specific date — paginated.
+     * Example: GET /deliveries/date/2026-03-27?page=0&size=100
      */
     @GetMapping("/date/{date}")
-    public List<Delivery> getByDate(
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return service.getByDate(date);
+    public Page<Delivery> getByDate(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size) {
+        return service.getByDate(date, PageRequest.of(page, size, Sort.by("id")));
     }
 
     /**
@@ -94,9 +98,7 @@ public class DeliveryController {
 
     /**
      * Marks a delivery as SKIPPED (added by mistake) and auto-recalculates
-     * the monthly bill for that customer if one already exists.
-     *
-     * Use this instead of manually changing status + regenerating the bill separately.
+     * the monthly bill if one exists.
      * Example: POST /deliveries/5/mark-as-mistake
      */
     @PostMapping("/{id}/mark-as-mistake")

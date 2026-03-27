@@ -4,14 +4,19 @@ import com.dairy.dairy_management.dto.GenerateDeliveryResult;
 import com.dairy.dairy_management.entity.Delivery;
 import com.dairy.dairy_management.entity.OverrideType;
 import com.dairy.dairy_management.entity.Subscription;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.DeliveryOverrideRepository;
 import com.dairy.dairy_management.repository.DeliveryRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DeliveryService {
@@ -43,8 +48,8 @@ public class DeliveryService {
         return repo.findBySubscriptionId(subscriptionId);
     }
 
-    public List<Delivery> getByDate(LocalDate date) {
-        return repo.findByDeliveryDate(date);
+    public Page<Delivery> getByDate(LocalDate date, Pageable pageable) {
+        return repo.findByDeliveryDate(date, pageable);
     }
 
     public List<Delivery> getByCustomer(Long customerId) {
@@ -53,7 +58,7 @@ public class DeliveryService {
 
     public Delivery getById(Long id) {
         return repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Delivery not found"));
+                .orElseThrow(() -> new NotFoundException("Delivery not found"));
     }
 
     /**
@@ -61,16 +66,16 @@ public class DeliveryService {
      *
      * Checks (in order):
      *  1. Is the date a system-wide holiday? → all deliveries skipped
-     *  2. Does the customer have a PAUSED override? → status = SKIPPED
-     *  3. Does the customer have a QUANTITY_MODIFIED override? → use modified quantity
-     *  4. Frequency logic (DAILY / ALTERNATE_DAY / CUSTOM_WEEKLY)
-     *  5. Duplicate guard — skip if delivery already exists for subscription + date
-     *
-     * Returns a summary of what was created, skipped, and not scheduled.
+     *  2. Is the subscription paused? → skip
+     *  3. Does the customer have a PAUSED override for this date? → status = SKIPPED
+     *  4. Does the customer have a QUANTITY_MODIFIED override? → use modified quantity
+     *  5. Frequency logic (DAILY / ALTERNATE_DAY / CUSTOM_WEEKLY)
+     *     - ALTERNATE_DAY uses ChronoUnit.DAYS.between() for correct cross-month calculation
+     *  6. Duplicate guard — skip if delivery already exists for subscription + date
+     *     (unique DB constraint also enforces this as a hard guarantee)
      */
     @Transactional
     public GenerateDeliveryResult generateForDate(LocalDate date) {
-        // Check system-wide holiday first
         if (holidayService.isHoliday(date)) {
             return new GenerateDeliveryResult(date, 0, 0,
                     subscriptionService.getActiveOnDate(date).size(),
@@ -86,6 +91,12 @@ public class DeliveryService {
         List<Delivery> createdDeliveries = new ArrayList<>();
 
         for (Subscription sub : activeSubscriptions) {
+            // Skip paused subscriptions
+            if (sub.isPaused()) {
+                notScheduled++;
+                continue;
+            }
+
             if (!subscriptionService.shouldDeliverOn(sub, date)) {
                 notScheduled++;
                 continue;
@@ -100,14 +111,12 @@ public class DeliveryService {
             String status = "PENDING";
             double quantity = sub.getQuantity();
 
-            // Check per-customer PAUSED override
             boolean paused = overrideRepo
                     .findByCustomerIdAndDateAndOverrideType(customerId, date, OverrideType.PAUSED)
                     .isPresent();
             if (paused) {
                 status = "SKIPPED";
             } else {
-                // Check per-customer QUANTITY_MODIFIED override
                 var qtyOverride = overrideRepo
                         .findByCustomerIdAndDateAndOverrideType(customerId, date, OverrideType.QUANTITY_MODIFIED);
                 if (qtyOverride.isPresent() && qtyOverride.get().getModifiedQuantity() != null) {
@@ -126,46 +135,67 @@ public class DeliveryService {
         }
 
         return new GenerateDeliveryResult(
-                date,
-                created,
-                alreadyExisted,
-                notScheduled,
-                activeSubscriptions.size(),
-                createdDeliveries
-        );
+                date, created, alreadyExisted, notScheduled,
+                activeSubscriptions.size(), createdDeliveries);
     }
 
     /**
      * Marks a delivery as SKIPPED (voided by admin due to mistake).
-     * Returns the customer ID, month, and year so the controller can trigger bill recalculation.
+     * Allowed from any non-SKIPPED status.
      */
     public Delivery markAsMistake(Long deliveryId) {
         Delivery delivery = repo.findById(deliveryId)
-                .orElseThrow(() -> new RuntimeException("Delivery not found"));
+                .orElseThrow(() -> new NotFoundException("Delivery not found"));
         if ("SKIPPED".equals(delivery.getStatus())) {
-            throw new RuntimeException("Delivery is already marked as skipped");
+            throw new ConflictException("Delivery is already marked as skipped");
         }
         delivery.setStatus("SKIPPED");
         return repo.save(delivery);
     }
 
     /**
-     * Updates the delivery status — used by the delivery partner Flutter app.
-     * Valid statuses: PENDING, DELIVERED, SKIPPED, NOT_REACHABLE
+     * Updates delivery status — used by the delivery partner Flutter app.
+     *
+     * Allowed transitions:
+     *   PENDING       → DELIVERED, SKIPPED, NOT_REACHABLE
+     *   NOT_REACHABLE → DELIVERED, SKIPPED
+     *   DELIVERED     → not allowed via this endpoint (use /mark-as-mistake)
+     *   SKIPPED       → not allowed via this endpoint
+     *
+     * Valid target statuses: PENDING, DELIVERED, SKIPPED, NOT_REACHABLE
      */
     public Delivery updateStatus(Long deliveryId, String status) {
         List<String> validStatuses = List.of("PENDING", "DELIVERED", "SKIPPED", "NOT_REACHABLE");
-        String upperStatus = status.toUpperCase();
+        String newStatus = status.toUpperCase();
 
-        if (!validStatuses.contains(upperStatus)) {
-            throw new RuntimeException("Invalid status '" + status +
+        if (!validStatuses.contains(newStatus)) {
+            throw new IllegalArgumentException("Invalid status '" + status +
                     "'. Valid values: PENDING, DELIVERED, SKIPPED, NOT_REACHABLE");
         }
 
         Delivery delivery = repo.findById(deliveryId)
-                .orElseThrow(() -> new RuntimeException("Delivery not found"));
+                .orElseThrow(() -> new NotFoundException("Delivery not found"));
 
-        delivery.setStatus(upperStatus);
+        String current = delivery.getStatus();
+
+        // Define allowed transitions
+        Map<String, List<String>> allowed = Map.of(
+                "PENDING",       List.of("DELIVERED", "SKIPPED", "NOT_REACHABLE"),
+                "NOT_REACHABLE", List.of("DELIVERED", "SKIPPED"),
+                "DELIVERED",     List.of(),
+                "SKIPPED",       List.of()
+        );
+
+        List<String> allowedNext = allowed.getOrDefault(current, List.of());
+        if (!allowedNext.contains(newStatus)) {
+            throw new IllegalArgumentException(
+                    "Cannot transition delivery from " + current + " to " + newStatus +
+                    (current.equals("DELIVERED") || current.equals("SKIPPED")
+                            ? ". Use /mark-as-mistake to void a delivery."
+                            : ""));
+        }
+
+        delivery.setStatus(newStatus);
         return repo.save(delivery);
     }
 }

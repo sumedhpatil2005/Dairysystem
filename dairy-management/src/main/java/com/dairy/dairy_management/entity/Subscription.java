@@ -1,7 +1,9 @@
 package com.dairy.dairy_management.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 import lombok.Data;
 import jakarta.validation.constraints.NotNull;
@@ -47,4 +49,11 @@ public class Subscription {
 
     // null means active; set when subscription is cancelled or modified mid-cycle
     private LocalDate endDate;
+
+    // Pause flag — when true, deliveries are not generated until resumed
+    private boolean paused = false;
+
+    @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Delivery> deliveries;
 }

@@ -10,6 +10,9 @@ import com.dairy.dairy_management.entity.Payment;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.PaymentService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,19 +32,22 @@ public class BillingController {
 
     /**
      * Generate (or regenerate) the monthly bill for a customer.
-     * Uses historically accurate prices for each delivery date.
+     * month must be 1–12, year must be >= 2000.
      * Example: POST /billing/generate?customerId=1&month=3&year=2026
      */
     @PostMapping("/generate")
     public BillResponse generate(@RequestParam Long customerId,
                                  @RequestParam int month,
                                  @RequestParam int year) {
+        if (month < 1 || month > 12) {
+            throw new IllegalArgumentException("month must be between 1 and 12");
+        }
+        if (year < 2000) {
+            throw new IllegalArgumentException("year must be 2000 or later");
+        }
         return service.generateBill(customerId, month, year);
     }
 
-    /**
-     * Get the raw Billing record by ID.
-     */
     @GetMapping("/{id}")
     public Billing getBill(@PathVariable Long id) {
         return service.getBillById(id);
@@ -66,31 +72,37 @@ public class BillingController {
     }
 
     /**
-     * Get all pending (unpaid) bills — admin view.
+     * Get all pending (unpaid) bills — paginated.
+     * Example: GET /billing/pending?page=0&size=20
      */
     @GetMapping("/pending")
-    public List<Billing> getPending() {
-        return service.getPendingBills();
+    public Page<Billing> getPending(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return service.getPendingBills(PageRequest.of(page, size, Sort.by("year", "month")));
     }
 
     /**
-     * Get all bills for a specific month/year.
-     * Example: GET /billing/month?month=3&year=2026
+     * Get all bills for a specific month/year — paginated.
+     * Example: GET /billing/month?month=3&year=2026&page=0&size=20
      */
     @GetMapping("/month")
-    public List<Billing> getByMonth(@RequestParam int month, @RequestParam int year) {
-        return service.getBillsByMonth(month, year);
+    public Page<Billing> getByMonth(
+            @RequestParam int month,
+            @RequestParam int year,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        if (month < 1 || month > 12) {
+            throw new IllegalArgumentException("month must be between 1 and 12");
+        }
+        if (year < 2000) {
+            throw new IllegalArgumentException("year must be 2000 or later");
+        }
+        return service.getBillsByMonth(month, year, PageRequest.of(page, size));
     }
 
     // --- Payments ---
 
-    /**
-     * Record a full or partial payment against a bill.
-     * Bill is automatically marked PAID when remainingAmount reaches 0.
-     *
-     * Example: POST /billing/1/payments
-     * { "amount": 500.0, "mode": "UPI", "referenceNumber": "TXN123456", "note": "Partial payment" }
-     */
     @PostMapping("/{id}/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public Payment recordPayment(@PathVariable Long id,
@@ -98,10 +110,6 @@ public class BillingController {
         return paymentService.recordPayment(id, request);
     }
 
-    /**
-     * Get all payments recorded against a bill.
-     * Example: GET /billing/1/payments
-     */
     @GetMapping("/{id}/payments")
     public List<PaymentResponse> getPayments(@PathVariable Long id) {
         return paymentService.getPaymentsByBill(id);
@@ -109,18 +117,6 @@ public class BillingController {
 
     // --- Bill Adjustments ---
 
-    /**
-     * Add a manual adjustment to a bill (negative = deduction, positive = surcharge).
-     * Bill totals are recalculated immediately.
-     *
-     * Example (remove disputed item):
-     *   POST /billing/1/adjustments
-     *   { "amount": -180.0, "description": "Disputed delivery Mar 15 — 3L removed per customer request" }
-     *
-     * Example (add surcharge):
-     *   POST /billing/1/adjustments
-     *   { "amount": 50.0, "description": "Late payment surcharge" }
-     */
     @PostMapping("/{id}/adjustments")
     @ResponseStatus(HttpStatus.CREATED)
     public BillAdjustment addAdjustment(@PathVariable Long id,
@@ -128,19 +124,11 @@ public class BillingController {
         return service.addAdjustment(id, request);
     }
 
-    /**
-     * List all adjustments on a bill.
-     * Example: GET /billing/1/adjustments
-     */
     @GetMapping("/{id}/adjustments")
     public List<BillAdjustment> getAdjustments(@PathVariable Long id) {
         return service.getAdjustments(id);
     }
 
-    /**
-     * Remove an adjustment from a bill. Bill totals are recalculated immediately.
-     * Example: DELETE /billing/1/adjustments/2
-     */
     @DeleteMapping("/{id}/adjustments/{adjId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeAdjustment(@PathVariable Long id, @PathVariable Long adjId) {

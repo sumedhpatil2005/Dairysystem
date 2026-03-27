@@ -1,11 +1,16 @@
 package com.dairy.dairy_management.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import jakarta.persistence.*;
+import java.util.List;
 
 @Data
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(
+        name = "uq_billing_customer_month_year",
+        columnNames = {"customer_id", "month", "year"}))
 public class Billing {
 
     @Id
@@ -39,4 +44,12 @@ public class Billing {
     private double remainingAmount = 0;
 
     private String status; // PAID / PENDING
+
+    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Payment> payments;
+
+    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<BillAdjustment> billAdjustments;
 }

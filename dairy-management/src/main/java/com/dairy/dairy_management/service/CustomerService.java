@@ -1,7 +1,11 @@
 package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.entity.Customer;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.CustomerRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -18,7 +22,7 @@ public class CustomerService {
 
     public Customer create(Customer customer) {
         if (repo.findByPhone(customer.getPhone()).isPresent()) {
-            throw new RuntimeException("Phone already exists");
+            throw new ConflictException("Phone number already in use");
         }
         customer.setActive(true);
         return repo.save(customer);
@@ -26,11 +30,16 @@ public class CustomerService {
 
     public Customer getById(Long id) {
         return repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
     }
 
-    // Returns only active customers (default list view)
-    public List<Customer> getAll() {
+    // Paginated active customer list
+    public Page<Customer> getAll(Pageable pageable) {
+        return repo.findByIsActiveTrue(pageable);
+    }
+
+    // Non-paginated — used internally by delivery generation and search
+    public List<Customer> getAllActive() {
         return repo.findByIsActiveTrue();
     }
 
@@ -39,7 +48,12 @@ public class CustomerService {
         return repo.findAll();
     }
 
-    // Search active customers by name / phone / society / deliveryLine (in-memory filtering)
+    /**
+     * Search active customers by name / phone / society / deliveryLine.
+     * All params are optional — any combination works.
+     * Filtering is done in-memory on the active customer list.
+     * Acceptable for dairy business scale (hundreds to low thousands of customers).
+     */
     public List<Customer> search(String name, String phone, String society, Long lineId) {
         return repo.findByIsActiveTrue().stream()
                 .filter(c -> isBlank(name) || c.getName().toLowerCase().contains(name.toLowerCase()))
@@ -54,12 +68,11 @@ public class CustomerService {
 
     public Customer update(Long id, Customer updated) {
         Customer existing = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
 
-        // Check phone uniqueness only if changed
         if (!existing.getPhone().equals(updated.getPhone())
                 && repo.findByPhone(updated.getPhone()).isPresent()) {
-            throw new RuntimeException("Phone already exists");
+            throw new ConflictException("Phone number already in use");
         }
 
         existing.setName(updated.getName());
@@ -70,32 +83,29 @@ public class CustomerService {
         return repo.save(existing);
     }
 
-    // Soft delete — marks customer inactive, does not remove from DB
     public Customer deactivate(Long id) {
         Customer customer = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
         if (!customer.isActive()) {
-            throw new RuntimeException("Customer is already inactive");
+            throw new ConflictException("Customer is already inactive");
         }
         customer.setActive(false);
         return repo.save(customer);
     }
 
-    // Re-activate a previously deactivated customer
     public Customer activate(Long id) {
         Customer customer = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
         if (customer.isActive()) {
-            throw new RuntimeException("Customer is already active");
+            throw new ConflictException("Customer is already active");
         }
         customer.setActive(true);
         return repo.save(customer);
     }
 
-    // Hard delete kept for backward compatibility (use deactivate in production)
     public void delete(Long id) {
         if (!repo.existsById(id)) {
-            throw new RuntimeException("Customer not found");
+            throw new NotFoundException("Customer not found");
         }
         repo.deleteById(id);
     }

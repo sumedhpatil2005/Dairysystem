@@ -1,4 +1,5 @@
 package com.dairy.dairy_management.entity;
+
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -6,12 +7,16 @@ import java.time.LocalDate;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.NotBlank;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Data
 @Entity
+@Table(name = "delivery", uniqueConstraints = @UniqueConstraint(
+        name = "uq_delivery_subscription_date",
+        columnNames = {"subscription_id", "delivery_date"}))
 public class Delivery {
+
     @Id
-    @GeneratedValue ( strategy= GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @ManyToOne
@@ -26,6 +31,4 @@ public class Delivery {
 
     @NotBlank(message = "Status is required")
     private String status;
-
-
 }
