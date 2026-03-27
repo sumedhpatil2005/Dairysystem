@@ -1,7 +1,9 @@
 package com.dairy.dairy_management.entity;
-import lombok.Data;
+
 import jakarta.persistence.*;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
 
 @Entity
 @Data
@@ -11,7 +13,12 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Product name is required")
     private String name;
+
+    @NotBlank(message = "Unit is required (e.g. LITRE, KG, PACKET)")
     private String unit;
-    private  double pricePerUnit;
+
+    @Positive(message = "Price per unit must be greater than 0")
+    private double pricePerUnit;
 }

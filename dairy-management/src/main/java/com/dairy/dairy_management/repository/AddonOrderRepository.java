@@ -13,4 +13,8 @@ public interface AddonOrderRepository extends JpaRepository<AddonOrder, Long> {
     List<AddonOrder> findByDeliveryDate(LocalDate date);
 
     List<AddonOrder> findByCustomerIdAndDeliveryDate(Long customerId, LocalDate date);
+
+    // Date-range query — used by BillingService to avoid in-memory month/year filtering
+    List<AddonOrder> findByCustomerIdAndDeliveryDateBetween(
+            Long customerId, LocalDate start, LocalDate end);
 }

@@ -3,6 +3,9 @@ package com.dairy.dairy_management.controller;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.service.CustomerService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,19 +32,26 @@ public class CustomerController {
 
     /**
      * List active customers with optional search filters.
-     * All params are optional and can be combined.
+     * Without filters: returns paginated list sorted by name.
+     * With filters: returns flat list (search across all active customers).
+     *
+     * Example: GET /customers?page=0&size=20
      * Example: GET /customers?name=ram&society=greenpark&lineId=2
      */
     @GetMapping
-    public List<Customer> search(
+    public Object search(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String phone,
             @RequestParam(required = false) String society,
-            @RequestParam(required = false) Long lineId) {
-        if (name == null && phone == null && society == null && lineId == null) {
-            return service.getAll();
+            @RequestParam(required = false) Long lineId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+
+        boolean hasFilter = name != null || phone != null || society != null || lineId != null;
+        if (hasFilter) {
+            return service.search(name, phone, society, lineId);
         }
-        return service.search(name, phone, society, lineId);
+        return service.getAll(PageRequest.of(page, size, Sort.by("name")));
     }
 
     /**
@@ -76,7 +86,6 @@ public class CustomerController {
         return service.activate(id);
     }
 
-    // Hard delete — kept for backward compatibility
     @DeleteMapping("/{id}")
     public String delete(@PathVariable Long id) {
         service.delete(id);

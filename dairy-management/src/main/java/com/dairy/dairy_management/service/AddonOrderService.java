@@ -4,6 +4,8 @@ import com.dairy.dairy_management.dto.CreateAddonOrderRequest;
 import com.dairy.dairy_management.entity.AddonOrder;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.entity.Product;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.AddonOrderRepository;
 import com.dairy.dairy_management.repository.CustomerRepository;
 import com.dairy.dairy_management.repository.ProductRepository;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class AddonOrderService {
@@ -29,10 +32,10 @@ public class AddonOrderService {
 
     public AddonOrder create(CreateAddonOrderRequest request) {
         Customer customer = customerRepo.findById(request.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
 
         Product product = productRepo.findById(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new NotFoundException("Product not found"));
 
         AddonOrder order = new AddonOrder();
         order.setCustomer(customer);
@@ -48,12 +51,12 @@ public class AddonOrderService {
 
     public AddonOrder getById(Long id) {
         return repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Addon order not found"));
+                .orElseThrow(() -> new NotFoundException("Addon order not found"));
     }
 
     public List<AddonOrder> getByCustomer(Long customerId) {
         customerRepo.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
         return repo.findByCustomerId(customerId);
     }
 
@@ -65,28 +68,53 @@ public class AddonOrderService {
         return repo.findByCustomerIdAndDeliveryDate(customerId, date);
     }
 
+    /**
+     * Updates addon order status.
+     *
+     * Allowed transitions:
+     *   PENDING   → DELIVERED, SKIPPED
+     *   DELIVERED → not allowed (use /mark-as-mistake)
+     *   SKIPPED   → not allowed
+     */
     public AddonOrder updateStatus(Long id, String status) {
         List<String> validStatuses = List.of("PENDING", "DELIVERED", "SKIPPED");
-        String upperStatus = status.toUpperCase();
+        String newStatus = status.toUpperCase();
 
-        if (!validStatuses.contains(upperStatus)) {
-            throw new RuntimeException(
+        if (!validStatuses.contains(newStatus)) {
+            throw new IllegalArgumentException(
                     "Invalid status '" + status + "'. Valid values: PENDING, DELIVERED, SKIPPED");
         }
 
         AddonOrder order = getById(id);
-        order.setStatus(upperStatus);
+        String current = order.getStatus();
+
+        Map<String, List<String>> allowed = Map.of(
+                "PENDING",   List.of("DELIVERED", "SKIPPED"),
+                "DELIVERED", List.of(),
+                "SKIPPED",   List.of()
+        );
+
+        List<String> allowedNext = allowed.getOrDefault(current, List.of());
+        if (!allowedNext.contains(newStatus)) {
+            throw new IllegalArgumentException(
+                    "Cannot transition addon order from " + current + " to " + newStatus +
+                    (current.equals("DELIVERED") || current.equals("SKIPPED")
+                            ? ". Use /mark-as-mistake to void a delivered order."
+                            : ""));
+        }
+
+        order.setStatus(newStatus);
         return repo.save(order);
     }
 
     /**
      * Marks an addon order as SKIPPED (voided by admin due to mistake).
-     * Returns the addon so the controller can trigger bill recalculation.
+     * Allowed from any non-SKIPPED status.
      */
     public AddonOrder markAsMistake(Long id) {
         AddonOrder order = getById(id);
         if ("SKIPPED".equals(order.getStatus())) {
-            throw new RuntimeException("Addon order is already marked as skipped");
+            throw new ConflictException("Addon order is already marked as skipped");
         }
         order.setStatus("SKIPPED");
         return repo.save(order);
@@ -95,7 +123,7 @@ public class AddonOrderService {
     public void delete(Long id) {
         AddonOrder order = getById(id);
         if ("DELIVERED".equals(order.getStatus())) {
-            throw new RuntimeException("Cannot delete a delivered addon order");
+            throw new ConflictException("Cannot delete a delivered addon order");
         }
         repo.delete(order);
     }

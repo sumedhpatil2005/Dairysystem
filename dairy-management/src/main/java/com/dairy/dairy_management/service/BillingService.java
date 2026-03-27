@@ -7,14 +7,19 @@ import com.dairy.dairy_management.entity.BillAdjustment;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.entity.Delivery;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.AddonOrderRepository;
 import com.dairy.dairy_management.repository.BillAdjustmentRepository;
 import com.dairy.dairy_management.repository.BillingRepository;
 import com.dairy.dairy_management.repository.CustomerRepository;
 import com.dairy.dairy_management.repository.DeliveryRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,11 +57,13 @@ public class BillingService {
      *   adjustmentAmount   = net sum of manual adjustments (preserved on regenerate)
      *   totalAmount        = all four combined
      *   remainingAmount    = totalAmount - paidAmount (paidAmount preserved on regenerate)
+     *
+     * Uses DB date-range queries instead of in-memory month/year stream filtering.
      */
     @Transactional
     public BillResponse generateBill(Long customerId, int month, int year) {
         Customer customer = customerRepo.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
 
         // Reuse existing bill if present (preserves paidAmount and adjustments)
         Billing bill = billingRepo
@@ -67,12 +74,15 @@ public class BillingService {
         bill.setMonth(month);
         bill.setYear(year);
 
+        // Date range for the requested month — DB does the filtering, not Java streams
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
         // --- Subscription deliveries (use historically accurate price) ---
-        List<Delivery> deliveries = deliveryRepo.findBySubscription_CustomerId(customerId)
+        List<Delivery> deliveries = deliveryRepo
+                .findBySubscription_CustomerIdAndDeliveryDateBetween(customerId, start, end)
                 .stream()
-                .filter(d -> d.getDeliveryDate().getMonthValue() == month
-                        && d.getDeliveryDate().getYear() == year
-                        && "DELIVERED".equals(d.getStatus()))
+                .filter(d -> "DELIVERED".equals(d.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> subItems = new ArrayList<>();
@@ -90,11 +100,10 @@ public class BillingService {
         }
 
         // --- Addon orders (use historically accurate price) ---
-        List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
+        List<AddonOrder> addons = addonRepo
+                .findByCustomerIdAndDeliveryDateBetween(customerId, start, end)
                 .stream()
-                .filter(a -> a.getDeliveryDate().getMonthValue() == month
-                        && a.getDeliveryDate().getYear() == year
-                        && "DELIVERED".equals(a.getStatus()))
+                .filter(a -> "DELIVERED".equals(a.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
@@ -139,17 +148,19 @@ public class BillingService {
 
     public BillResponse getBillDetail(Long billId) {
         Billing bill = billingRepo.findById(billId)
-                .orElseThrow(() -> new RuntimeException("Bill not found"));
+                .orElseThrow(() -> new NotFoundException("Bill not found"));
 
         Long customerId = bill.getCustomer().getId();
         int month = bill.getMonth();
         int year = bill.getYear();
 
-        List<Delivery> deliveries = deliveryRepo.findBySubscription_CustomerId(customerId)
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
+        List<Delivery> deliveries = deliveryRepo
+                .findBySubscription_CustomerIdAndDeliveryDateBetween(customerId, start, end)
                 .stream()
-                .filter(d -> d.getDeliveryDate().getMonthValue() == month
-                        && d.getDeliveryDate().getYear() == year
-                        && "DELIVERED".equals(d.getStatus()))
+                .filter(d -> "DELIVERED".equals(d.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> subItems = new ArrayList<>();
@@ -163,11 +174,10 @@ public class BillingService {
                     d.getQuantity(), price));
         }
 
-        List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
+        List<AddonOrder> addons = addonRepo
+                .findByCustomerIdAndDeliveryDateBetween(customerId, start, end)
                 .stream()
-                .filter(a -> a.getDeliveryDate().getMonthValue() == month
-                        && a.getDeliveryDate().getYear() == year
-                        && "DELIVERED".equals(a.getStatus()))
+                .filter(a -> "DELIVERED".equals(a.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
@@ -190,7 +200,7 @@ public class BillingService {
     @Transactional
     public BillAdjustment addAdjustment(Long billId, BillAdjustmentRequest request) {
         Billing bill = billingRepo.findById(billId)
-                .orElseThrow(() -> new RuntimeException("Bill not found"));
+                .orElseThrow(() -> new NotFoundException("Bill not found"));
 
         BillAdjustment adj = new BillAdjustment();
         adj.setBill(bill);
@@ -199,7 +209,6 @@ public class BillingService {
         adj.setDescription(request.getDescription());
         BillAdjustment saved = adjustmentRepo.save(adj);
 
-        // Recalculate bill totals
         recalculate(bill);
         return saved;
     }
@@ -207,9 +216,9 @@ public class BillingService {
     @Transactional
     public void removeAdjustment(Long billId, Long adjId) {
         BillAdjustment adj = adjustmentRepo.findById(adjId)
-                .orElseThrow(() -> new RuntimeException("Adjustment not found"));
+                .orElseThrow(() -> new NotFoundException("Adjustment not found"));
         if (!adj.getBill().getId().equals(billId)) {
-            throw new RuntimeException("Adjustment does not belong to this bill");
+            throw new IllegalArgumentException("Adjustment does not belong to this bill");
         }
         adjustmentRepo.delete(adj);
         Billing bill = billingRepo.findById(billId).orElseThrow();
@@ -218,7 +227,7 @@ public class BillingService {
 
     public List<BillAdjustment> getAdjustments(Long billId) {
         billingRepo.findById(billId)
-                .orElseThrow(() -> new RuntimeException("Bill not found"));
+                .orElseThrow(() -> new NotFoundException("Bill not found"));
         return adjustmentRepo.findByBillId(billId);
     }
 
@@ -226,21 +235,26 @@ public class BillingService {
 
     public List<Billing> getBillsByCustomer(Long customerId) {
         customerRepo.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
         return billingRepo.findByCustomerId(customerId);
     }
 
-    public List<Billing> getPendingBills() {
-        return billingRepo.findByStatus("PENDING");
+    public Page<Billing> getPendingBills(Pageable pageable) {
+        return billingRepo.findByStatus("PENDING", pageable);
     }
 
-    public List<Billing> getBillsByMonth(int month, int year) {
+    public Page<Billing> getBillsByMonth(int month, int year, Pageable pageable) {
+        return billingRepo.findByMonthAndYear(month, year, pageable);
+    }
+
+    // Non-paginated — used internally by reports
+    public List<Billing> getBillsByMonthList(int month, int year) {
         return billingRepo.findByMonthAndYear(month, year);
     }
 
     public Billing getBillById(Long id) {
         return billingRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Bill not found"));
+                .orElseThrow(() -> new NotFoundException("Bill not found"));
     }
 
     /**

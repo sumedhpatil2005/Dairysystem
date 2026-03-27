@@ -53,4 +53,23 @@ public class SubscriptionController {
         service.cancel(id);
         return ResponseEntity.ok("Subscription cancelled successfully");
     }
+
+    /**
+     * Pause a subscription indefinitely — no deliveries generated until resumed.
+     * Use DeliveryOverride (PAUSED) for single-day pauses instead.
+     * Example: PATCH /subscriptions/1/pause
+     */
+    @PatchMapping("/{id}/pause")
+    public ResponseEntity<Subscription> pause(@PathVariable Long id) {
+        return ResponseEntity.ok(service.pause(id));
+    }
+
+    /**
+     * Resume a paused subscription — delivery generation resumes from next run.
+     * Example: PATCH /subscriptions/1/resume
+     */
+    @PatchMapping("/{id}/resume")
+    public ResponseEntity<Subscription> resume(@PathVariable Long id) {
+        return ResponseEntity.ok(service.resume(id));
+    }
 }

@@ -4,6 +4,8 @@ import com.dairy.dairy_management.dto.PaymentResponse;
 import com.dairy.dairy_management.dto.RecordPaymentRequest;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.entity.Payment;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.mapper.PaymentMapper;
 import com.dairy.dairy_management.repository.BillingRepository;
 import com.dairy.dairy_management.repository.PaymentRepository;
@@ -29,23 +31,43 @@ public class PaymentService {
     }
 
     public List<PaymentResponse> getPaymentsByBill(Long billId) {
+        if (!billingRepo.existsById(billId)) {
+            throw new NotFoundException("Bill not found");
+        }
         List<Payment> payments = paymentRepo.findByBillId(billId);
         return payments.stream().map(paymentMapper::toDto).toList();
     }
 
+    /**
+     * Records a payment against a bill.
+     * Uses a pessimistic write lock to prevent concurrent payments from overpaying.
+     * Blocks zero payments and amounts exceeding the remaining balance.
+     */
     @Transactional
     public Payment recordPayment(Long billId, RecordPaymentRequest request) {
-        Billing bill = billingRepo.findById(billId)
-                .orElseThrow(() -> new RuntimeException("Bill not found"));
+        // Lock the bill row — prevents race condition where two concurrent payments both
+        // pass the remaining > 0 check and together exceed the balance
+        Billing bill = billingRepo.findByIdWithLock(billId)
+                .orElseThrow(() -> new NotFoundException("Bill not found"));
 
         if ("PAID".equals(bill.getStatus())) {
-            throw new RuntimeException("Bill is already fully paid");
+            throw new ConflictException("Bill is already fully paid");
         }
 
         double remaining = bill.getRemainingAmount();
+
+        if (remaining <= 0) {
+            throw new ConflictException("No outstanding balance on this bill");
+        }
+
+        if (request.getAmount() <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than 0");
+        }
+
         if (request.getAmount() > remaining) {
-            throw new RuntimeException(
-                    "Payment amount (" + request.getAmount() + ") exceeds remaining balance (" + remaining + ")");
+            throw new IllegalArgumentException(
+                    "Payment amount (" + request.getAmount() +
+                    ") exceeds remaining balance (" + remaining + ")");
         }
 
         Payment payment = new Payment();
@@ -59,7 +81,6 @@ public class PaymentService {
                 ? request.getPaymentDate()
                 : LocalDate.now());
 
-        // Update bill financials
         double newPaid = bill.getPaidAmount() + request.getAmount();
         bill.setPaidAmount(newPaid);
         bill.setRemainingAmount(bill.getTotalAmount() - newPaid);
@@ -69,7 +90,7 @@ public class PaymentService {
         return paymentRepo.save(payment);
     }
 
-    // Kept for backward compatibility with existing /payments endpoint
+    // Kept for backward compatibility
     @Transactional
     public Payment makePayment(Long billId, double amount, String mode) {
         RecordPaymentRequest req = new RecordPaymentRequest();
