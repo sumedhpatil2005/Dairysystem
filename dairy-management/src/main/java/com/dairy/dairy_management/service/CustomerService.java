@@ -4,6 +4,7 @@ import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.repository.CustomerRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -38,14 +39,17 @@ public class CustomerService {
         return repo.findAll();
     }
 
-    // Search active customers by name / phone / society / deliveryLine
+    // Search active customers by name / phone / society / deliveryLine (in-memory filtering)
     public List<Customer> search(String name, String phone, String society, Long lineId) {
-        return repo.search(
-                isBlank(name) ? null : name,
-                isBlank(phone) ? null : phone,
-                isBlank(society) ? null : society,
-                lineId
-        );
+        return repo.findByIsActiveTrue().stream()
+                .filter(c -> isBlank(name) || c.getName().toLowerCase().contains(name.toLowerCase()))
+                .filter(c -> isBlank(phone) || c.getPhone().contains(phone))
+                .filter(c -> isBlank(society) || (c.getSocietyName() != null
+                        && c.getSocietyName().toLowerCase().contains(society.toLowerCase())))
+                .filter(c -> lineId == null || (c.getDeliveryLine() != null
+                        && c.getDeliveryLine().getId().equals(lineId)))
+                .sorted(Comparator.comparing(Customer::getName))
+                .toList();
     }
 
     public Customer update(Long id, Customer updated) {
