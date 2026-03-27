@@ -79,6 +79,19 @@ public class AddonOrderService {
         return repo.save(order);
     }
 
+    /**
+     * Marks an addon order as SKIPPED (voided by admin due to mistake).
+     * Returns the addon so the controller can trigger bill recalculation.
+     */
+    public AddonOrder markAsMistake(Long id) {
+        AddonOrder order = getById(id);
+        if ("SKIPPED".equals(order.getStatus())) {
+            throw new RuntimeException("Addon order is already marked as skipped");
+        }
+        order.setStatus("SKIPPED");
+        return repo.save(order);
+    }
+
     public void delete(Long id) {
         AddonOrder order = getById(id);
         if ("DELIVERED".equals(order.getStatus())) {

@@ -136,6 +136,20 @@ public class DeliveryService {
     }
 
     /**
+     * Marks a delivery as SKIPPED (voided by admin due to mistake).
+     * Returns the customer ID, month, and year so the controller can trigger bill recalculation.
+     */
+    public Delivery markAsMistake(Long deliveryId) {
+        Delivery delivery = repo.findById(deliveryId)
+                .orElseThrow(() -> new RuntimeException("Delivery not found"));
+        if ("SKIPPED".equals(delivery.getStatus())) {
+            throw new RuntimeException("Delivery is already marked as skipped");
+        }
+        delivery.setStatus("SKIPPED");
+        return repo.save(delivery);
+    }
+
+    /**
      * Updates the delivery status — used by the delivery partner Flutter app.
      * Valid statuses: PENDING, DELIVERED, SKIPPED, NOT_REACHABLE
      */
