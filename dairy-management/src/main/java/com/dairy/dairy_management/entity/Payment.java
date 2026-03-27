@@ -1,8 +1,10 @@
 package com.dairy.dairy_management.entity;
+
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Entity
@@ -22,5 +24,18 @@ public class Payment {
 
     private LocalDate paymentDate;
 
-    private String mode; // CASH / UPI
+    private String mode; // CASH / UPI / BANK_TRANSFER / CHEQUE
+
+    // Optional: UPI transaction ID, cheque number, etc.
+    private String referenceNumber;
+
+    // Optional note from admin e.g. "Partial payment — rest next week"
+    private String note;
+
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void setCreatedAt() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

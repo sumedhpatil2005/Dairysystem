@@ -2,6 +2,7 @@ package com.dairy.dairy_management.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -37,7 +38,19 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/error").permitAll()
-                        .anyRequest().authenticated()
+
+                        // DELIVERY_PARTNER: update delivery/addon status + view their daily list + read deliveries
+                        .requestMatchers(HttpMethod.PATCH, "/deliveries/*/status")
+                            .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
+                        .requestMatchers(HttpMethod.PATCH, "/orders/addon/*/status")
+                            .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
+                        .requestMatchers(HttpMethod.GET, "/delivery-partners/*/daily-list")
+                            .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
+                        .requestMatchers(HttpMethod.GET, "/deliveries/**")
+                            .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
+
+                        // Everything else is ADMIN only
+                        .anyRequest().hasRole("ADMIN")
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
