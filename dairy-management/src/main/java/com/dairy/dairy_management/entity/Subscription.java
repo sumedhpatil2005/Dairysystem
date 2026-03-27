@@ -1,12 +1,11 @@
 package com.dairy.dairy_management.entity;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.Set;
 import lombok.Data;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.NotBlank;
-
 
 @Data
 @Entity
@@ -27,11 +26,25 @@ public class Subscription {
     @Positive(message = "Quantity must be greater than 0")
     private double quantity;
 
-    @NotBlank(message = "Frequency is required")
-    private String frequency;
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "Frequency is required")
+    private FrequencyType frequency;
+
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "Delivery slot is required")
+    private DeliverySlot deliverySlot;
+
+    // Only required when frequency is CUSTOM_WEEKLY
+    // Valid values: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+    @ElementCollection
+    @CollectionTable(name = "subscription_delivery_days",
+            joinColumns = @JoinColumn(name = "subscription_id"))
+    @Column(name = "day")
+    private Set<String> deliveryDays;
 
     @NotNull(message = "Start date is required")
     private LocalDate startDate;
 
+    // null means active; set when subscription is cancelled or modified mid-cycle
     private LocalDate endDate;
 }
