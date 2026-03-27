@@ -2,15 +2,25 @@ package com.dairy.dairy_management.mapper;
 
 import com.dairy.dairy_management.dto.PaymentResponse;
 import com.dairy.dairy_management.entity.Payment;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface PaymentMapper {
+@Component
+public class PaymentMapper {
 
-    @Mapping(source = "bill.id", target = "billId")
-    @Mapping(source = "bill.totalAmount", target = "totalAmount")
-    @Mapping(source = "bill.paidAmount", target = "paidAmount")
-    @Mapping(source = "bill.remainingAmount", target = "remainingAmount")
-    PaymentResponse toDto(Payment payment);
+    public PaymentResponse toDto(Payment payment) {
+        PaymentResponse dto = new PaymentResponse();
+        dto.setId(payment.getId());
+        dto.setAmount(payment.getAmount());
+        dto.setMode(payment.getMode());
+        dto.setPaymentDate(payment.getPaymentDate());
+
+        if (payment.getBill() != null) {
+            dto.setBillId(payment.getBill().getId());
+            dto.setTotalAmount(payment.getBill().getTotalAmount());
+            dto.setPaidAmount(payment.getBill().getPaidAmount());
+            dto.setRemainingAmount(payment.getBill().getRemainingAmount());
+        }
+
+        return dto;
+    }
 }
