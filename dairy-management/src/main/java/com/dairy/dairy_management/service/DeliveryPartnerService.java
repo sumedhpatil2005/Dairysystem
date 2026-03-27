@@ -3,6 +3,7 @@ package com.dairy.dairy_management.service;
 import com.dairy.dairy_management.dto.*;
 import com.dairy.dairy_management.entity.*;
 import com.dairy.dairy_management.repository.*;
+import com.dairy.dairy_management.repository.AddonOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,17 +19,31 @@ public class DeliveryPartnerService {
     private final DeliveryLineRepository lineRepo;
     private final UserRepository userRepo;
     private final DeliveryRepository deliveryRepo;
+    private final AddonOrderRepository addonOrderRepo;
 
     public DeliveryPartnerService(DeliveryPartnerRepository partnerRepo,
                                   DeliveryPartnerLineRepository partnerLineRepo,
                                   DeliveryLineRepository lineRepo,
                                   UserRepository userRepo,
-                                  DeliveryRepository deliveryRepo) {
+                                  DeliveryRepository deliveryRepo,
+                                  AddonOrderRepository addonOrderRepo) {
         this.partnerRepo = partnerRepo;
         this.partnerLineRepo = partnerLineRepo;
         this.lineRepo = lineRepo;
         this.userRepo = userRepo;
         this.deliveryRepo = deliveryRepo;
+        this.addonOrderRepo = addonOrderRepo;
+    }
+
+    /**
+     * Gets the daily list for the currently logged-in delivery partner using their username from JWT.
+     */
+    public DailyDeliveryListResponse getDailyListByUsername(String username, LocalDate date) {
+        User user = userRepo.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        DeliveryPartner partner = partnerRepo.findByUserId(user.getId())
+                .orElseThrow(() -> new RuntimeException("No delivery partner profile found for this user"));
+        return getDailyList(partner.getId(), date);
     }
 
     public DeliveryPartnerResponse createPartner(CreateDeliveryPartnerRequest request) {
