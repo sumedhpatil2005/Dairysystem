@@ -11,4 +11,10 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
     List<Delivery> findBySubscriptionId(Long subscriptionId);
 
     List<Delivery> findBySubscription_CustomerIdAndDeliveryDate(Long customerId, LocalDate date);
+
+    List<Delivery> findByDeliveryDate(LocalDate date);
+
+    List<Delivery> findBySubscription_CustomerId(Long customerId);
+
+    boolean existsBySubscriptionIdAndDeliveryDate(Long subscriptionId, LocalDate date);
 }
