@@ -7,8 +7,7 @@ import jakarta.persistence.*;
 @Data
 @Entity
 public class Billing {
-    private double paidAmount = 0;
-    private double remainingAmount = 0;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,7 +19,21 @@ public class Billing {
 
     private int year;
 
-    private double totalAmount;
+    // Amount from subscription deliveries (DELIVERED status only)
+    private double subscriptionAmount = 0;
+
+    // Amount from addon orders (DELIVERED status only)
+    private double addonAmount = 0;
+
+    // Carried over unpaid balance from the previous month's bill
+    private double previousPendingAmount = 0;
+
+    // subscriptionAmount + addonAmount + previousPendingAmount
+    private double totalAmount = 0;
+
+    private double paidAmount = 0;
+
+    private double remainingAmount = 0;
 
     private String status; // PAID / PENDING
 }
