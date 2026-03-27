@@ -36,8 +36,11 @@ public class ReportService {
     }
 
     /**
-     * Daily delivery report — all deliveries for a date grouped by delivery line.
-     * Shows which partner is assigned and status of each customer's delivery.
+     * Daily delivery report following the system's hierarchy:
+     *   Line → Customers (in lineSequence order) → Deliveries
+     *
+     * Each line also shows which delivery partner is assigned to it.
+     * A partner may have multiple lines; each line has multiple customers in sequence.
      */
     public DailyReportResponse getDailyReport(LocalDate date) {
         List<Delivery> allDeliveries = deliveryRepo.findByDeliveryDate(date);
@@ -54,10 +57,17 @@ public class ReportService {
         List<DailyReportResponse.LineReport> lineReports = new ArrayList<>();
 
         for (DeliveryLine line : lines) {
-            // Find deliveries for customers on this line
+            // Deliveries for customers on this line, ordered by customer lineSequence
             List<Delivery> lineDeliveries = allDeliveries.stream()
                     .filter(d -> d.getSubscription().getCustomer().getDeliveryLine() != null
                             && d.getSubscription().getCustomer().getDeliveryLine().getId().equals(line.getId()))
+                    .sorted((a, b) -> {
+                        Integer seqA = a.getSubscription().getCustomer().getLineSequence();
+                        Integer seqB = b.getSubscription().getCustomer().getLineSequence();
+                        if (seqA == null) return 1;
+                        if (seqB == null) return -1;
+                        return seqA.compareTo(seqB);
+                    })
                     .toList();
 
             if (lineDeliveries.isEmpty()) continue;
@@ -66,10 +76,8 @@ public class ReportService {
             lineReport.setLineId(line.getId());
             lineReport.setLineName(line.getName());
 
-            // Find assigned partner for this line
-            partnerLineRepo.findAll().stream()
-                    .filter(pl -> pl.getLine().getId().equals(line.getId()))
-                    .findFirst()
+            // Efficient lookup: which partner has this line assigned?
+            partnerLineRepo.findByLineId(line.getId())
                     .ifPresent(pl -> lineReport.setPartnerName(pl.getDeliveryPartner().getName()));
 
             List<DailyReportResponse.DeliveryItem> items = lineDeliveries.stream()
