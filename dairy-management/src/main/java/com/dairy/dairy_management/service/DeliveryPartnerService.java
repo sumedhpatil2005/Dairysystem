@@ -105,11 +105,13 @@ public class DeliveryPartnerService {
         List<DeliveryPartnerLine> toSave = new ArrayList<>();
 
         for (int i = 0; i < lineIds.size(); i++) {
+            final Long lineId = lineIds.get(i);
+            final int sequence = i + 1;
             DeliveryPartnerLine assignment = partnerLineRepo
-                    .findByDeliveryPartnerIdAndLineId(partnerId, lineIds.get(i))
-                    .orElseThrow(() -> new RuntimeException("Line " + lineIds.get(i) + " is not assigned to this partner"));
+                    .findByDeliveryPartnerIdAndLineId(partnerId, lineId)
+                    .orElseThrow(() -> new RuntimeException("Line " + lineId + " is not assigned to this partner"));
 
-            assignment.setLineSequence(i + 1);
+            assignment.setLineSequence(sequence);
             toSave.add(assignment);
         }
 
