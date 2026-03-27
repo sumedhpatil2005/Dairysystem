@@ -26,6 +26,17 @@ public class Customer {
     @Pattern(regexp = "\\d{10}", message = "Phone must be 10 digits")
     private String phone;
 
+    private String address;
+
+    private String societyName;
+
+    @ManyToOne
+    @JoinColumn(name = "delivery_line_id")
+    @JsonIgnore
+    private DeliveryLine deliveryLine;
+
+    private Integer lineSequence;
+
     private LocalDateTime createdAt;
 
     @PrePersist
