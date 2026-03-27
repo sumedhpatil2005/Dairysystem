@@ -21,6 +21,9 @@ public class BillAdjustment {
     @JsonIgnore
     private Billing bill;
 
+    @Enumerated(EnumType.STRING)
+    private AdjustmentType adjustmentType = AdjustmentType.OTHER;
+
     // Negative = deduction (e.g. -180 for disputed delivery)
     // Positive = additional charge (e.g. +50 for late fee)
     @NotNull(message = "Amount is required")

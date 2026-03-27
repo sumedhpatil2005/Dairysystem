@@ -1,8 +1,10 @@
 package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.GenerateDeliveryResult;
+import com.dairy.dairy_management.dto.MistakeCorrectionResponse;
 import com.dairy.dairy_management.dto.UpdateDeliveryStatusRequest;
 import com.dairy.dairy_management.entity.Delivery;
+import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.DeliveryService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -16,9 +18,11 @@ import java.util.List;
 public class DeliveryController {
 
     private final DeliveryService service;
+    private final BillingService billingService;
 
-    public DeliveryController(DeliveryService service) {
+    public DeliveryController(DeliveryService service, BillingService billingService) {
         this.service = service;
+        this.billingService = billingService;
     }
 
     @PostMapping
@@ -86,5 +90,27 @@ public class DeliveryController {
     @GetMapping("/{id}")
     public Delivery getById(@PathVariable Long id) {
         return service.getById(id);
+    }
+
+    /**
+     * Marks a delivery as SKIPPED (added by mistake) and auto-recalculates
+     * the monthly bill for that customer if one already exists.
+     *
+     * Use this instead of manually changing status + regenerating the bill separately.
+     * Example: POST /deliveries/5/mark-as-mistake
+     */
+    @PostMapping("/{id}/mark-as-mistake")
+    public MistakeCorrectionResponse markAsMistake(@PathVariable Long id) {
+        Delivery delivery = service.markAsMistake(id);
+        Long customerId = delivery.getSubscription().getCustomer().getId();
+        int month = delivery.getDeliveryDate().getMonthValue();
+        int year = delivery.getDeliveryDate().getYear();
+
+        var updatedBill = billingService.recalculateIfBillExists(customerId, month, year);
+        return new MistakeCorrectionResponse(
+                "Delivery marked as skipped successfully",
+                updatedBill.isPresent(),
+                updatedBill.orElse(null)
+        );
     }
 }

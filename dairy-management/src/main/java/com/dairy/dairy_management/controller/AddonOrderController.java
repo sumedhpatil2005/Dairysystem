@@ -1,9 +1,11 @@
 package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.CreateAddonOrderRequest;
+import com.dairy.dairy_management.dto.MistakeCorrectionResponse;
 import com.dairy.dairy_management.dto.UpdateDeliveryStatusRequest;
 import com.dairy.dairy_management.entity.AddonOrder;
 import com.dairy.dairy_management.service.AddonOrderService;
+import com.dairy.dairy_management.service.BillingService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -17,9 +19,11 @@ import java.util.List;
 public class AddonOrderController {
 
     private final AddonOrderService service;
+    private final BillingService billingService;
 
-    public AddonOrderController(AddonOrderService service) {
+    public AddonOrderController(AddonOrderService service, BillingService billingService) {
         this.service = service;
+        this.billingService = billingService;
     }
 
     /**
@@ -86,5 +90,26 @@ public class AddonOrderController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    /**
+     * Marks an addon order as SKIPPED (added by mistake) and auto-recalculates
+     * the monthly bill for that customer if one already exists.
+     *
+     * Example: POST /orders/addon/3/mark-as-mistake
+     */
+    @PostMapping("/{id}/mark-as-mistake")
+    public MistakeCorrectionResponse markAsMistake(@PathVariable Long id) {
+        AddonOrder order = service.markAsMistake(id);
+        Long customerId = order.getCustomer().getId();
+        int month = order.getDeliveryDate().getMonthValue();
+        int year = order.getDeliveryDate().getYear();
+
+        var updatedBill = billingService.recalculateIfBillExists(customerId, month, year);
+        return new MistakeCorrectionResponse(
+                "Addon order marked as skipped successfully",
+                updatedBill.isPresent(),
+                updatedBill.orElse(null)
+        );
     }
 }

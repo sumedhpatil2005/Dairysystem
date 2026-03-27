@@ -194,6 +194,7 @@ public class BillingService {
 
         BillAdjustment adj = new BillAdjustment();
         adj.setBill(bill);
+        adj.setAdjustmentType(request.getAdjustmentType());
         adj.setAmount(request.getAmount());
         adj.setDescription(request.getDescription());
         BillAdjustment saved = adjustmentRepo.save(adj);
@@ -240,6 +241,16 @@ public class BillingService {
     public Billing getBillById(Long id) {
         return billingRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Bill not found"));
+    }
+
+    /**
+     * Recalculates and returns an existing bill for the given customer/month/year.
+     * Returns empty if no bill has been generated yet for that period.
+     * Used by mark-as-mistake flow to auto-update the bill after a delivery is voided.
+     */
+    public java.util.Optional<BillResponse> recalculateIfBillExists(Long customerId, int month, int year) {
+        return billingRepo.findByCustomerIdAndMonthAndYear(customerId, month, year)
+                .map(b -> generateBill(customerId, month, year));
     }
 
     // --- private helpers ---
