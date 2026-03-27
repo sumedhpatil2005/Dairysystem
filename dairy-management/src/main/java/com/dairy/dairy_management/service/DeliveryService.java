@@ -2,7 +2,9 @@ package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.GenerateDeliveryResult;
 import com.dairy.dairy_management.entity.Delivery;
+import com.dairy.dairy_management.entity.OverrideType;
 import com.dairy.dairy_management.entity.Subscription;
+import com.dairy.dairy_management.repository.DeliveryOverrideRepository;
 import com.dairy.dairy_management.repository.DeliveryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,10 +18,17 @@ public class DeliveryService {
 
     private final DeliveryRepository repo;
     private final SubscriptionService subscriptionService;
+    private final HolidayService holidayService;
+    private final DeliveryOverrideRepository overrideRepo;
 
-    public DeliveryService(DeliveryRepository repo, SubscriptionService subscriptionService) {
+    public DeliveryService(DeliveryRepository repo,
+                           SubscriptionService subscriptionService,
+                           HolidayService holidayService,
+                           DeliveryOverrideRepository overrideRepo) {
         this.repo = repo;
         this.subscriptionService = subscriptionService;
+        this.holidayService = holidayService;
+        this.overrideRepo = overrideRepo;
     }
 
     public Delivery create(Delivery delivery) {
@@ -50,15 +59,25 @@ public class DeliveryService {
     /**
      * Auto-generates delivery records for all active subscriptions on the given date.
      *
-     * For each active subscription:
-     *  - Checks frequency logic (DAILY / ALTERNATE_DAY / CUSTOM_WEEKLY)
-     *  - Skips if a delivery record already exists for this subscription + date
-     *  - Creates a PENDING delivery if the subscription is due
+     * Checks (in order):
+     *  1. Is the date a system-wide holiday? → all deliveries skipped
+     *  2. Does the customer have a PAUSED override? → status = SKIPPED
+     *  3. Does the customer have a QUANTITY_MODIFIED override? → use modified quantity
+     *  4. Frequency logic (DAILY / ALTERNATE_DAY / CUSTOM_WEEKLY)
+     *  5. Duplicate guard — skip if delivery already exists for subscription + date
      *
      * Returns a summary of what was created, skipped, and not scheduled.
      */
     @Transactional
     public GenerateDeliveryResult generateForDate(LocalDate date) {
+        // Check system-wide holiday first
+        if (holidayService.isHoliday(date)) {
+            return new GenerateDeliveryResult(date, 0, 0,
+                    subscriptionService.getActiveOnDate(date).size(),
+                    subscriptionService.getActiveOnDate(date).size(),
+                    List.of());
+        }
+
         List<Subscription> activeSubscriptions = subscriptionService.getActiveOnDate(date);
 
         int created = 0;
@@ -77,11 +96,30 @@ public class DeliveryService {
                 continue;
             }
 
+            Long customerId = sub.getCustomer().getId();
+            String status = "PENDING";
+            double quantity = sub.getQuantity();
+
+            // Check per-customer PAUSED override
+            boolean paused = overrideRepo
+                    .findByCustomerIdAndDateAndOverrideType(customerId, date, OverrideType.PAUSED)
+                    .isPresent();
+            if (paused) {
+                status = "SKIPPED";
+            } else {
+                // Check per-customer QUANTITY_MODIFIED override
+                var qtyOverride = overrideRepo
+                        .findByCustomerIdAndDateAndOverrideType(customerId, date, OverrideType.QUANTITY_MODIFIED);
+                if (qtyOverride.isPresent() && qtyOverride.get().getModifiedQuantity() != null) {
+                    quantity = qtyOverride.get().getModifiedQuantity();
+                }
+            }
+
             Delivery delivery = new Delivery();
             delivery.setSubscription(sub);
             delivery.setDeliveryDate(date);
-            delivery.setQuantity(sub.getQuantity());
-            delivery.setStatus("PENDING");
+            delivery.setQuantity(quantity);
+            delivery.setStatus(status);
 
             createdDeliveries.add(repo.save(delivery));
             created++;
