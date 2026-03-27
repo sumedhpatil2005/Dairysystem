@@ -79,10 +79,11 @@ public class BillingService {
         }
 
         // --- Addon orders ---
-        List<AddonOrder> addons = addonRepo
-                .findByCustomerIdAndMonthAndYear(customerId, month, year)
+        List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
                 .stream()
-                .filter(a -> "DELIVERED".equals(a.getStatus()))
+                .filter(a -> a.getDeliveryDate().getMonthValue() == month
+                        && a.getDeliveryDate().getYear() == year
+                        && "DELIVERED".equals(a.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
@@ -141,10 +142,11 @@ public class BillingService {
                     d.getSubscription().getProduct().getPricePerUnit()));
         }
 
-        List<AddonOrder> addons = addonRepo
-                .findByCustomerIdAndMonthAndYear(customerId, month, year)
+        List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
                 .stream()
-                .filter(a -> "DELIVERED".equals(a.getStatus()))
+                .filter(a -> a.getDeliveryDate().getMonthValue() == month
+                        && a.getDeliveryDate().getYear() == year
+                        && "DELIVERED".equals(a.getStatus()))
                 .toList();
 
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
