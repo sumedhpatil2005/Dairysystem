@@ -1,11 +1,14 @@
 package com.dairy.dairy_management.service;
 
+import com.dairy.dairy_management.dto.BillAdjustmentRequest;
 import com.dairy.dairy_management.dto.BillResponse;
 import com.dairy.dairy_management.entity.AddonOrder;
+import com.dairy.dairy_management.entity.BillAdjustment;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.entity.Delivery;
 import com.dairy.dairy_management.repository.AddonOrderRepository;
+import com.dairy.dairy_management.repository.BillAdjustmentRepository;
 import com.dairy.dairy_management.repository.BillingRepository;
 import com.dairy.dairy_management.repository.CustomerRepository;
 import com.dairy.dairy_management.repository.DeliveryRepository;
@@ -22,33 +25,40 @@ public class BillingService {
     private final AddonOrderRepository addonRepo;
     private final BillingRepository billingRepo;
     private final CustomerRepository customerRepo;
+    private final BillAdjustmentRepository adjustmentRepo;
+    private final ProductPriceHistoryService priceHistoryService;
 
     public BillingService(DeliveryRepository deliveryRepo,
                           AddonOrderRepository addonRepo,
                           BillingRepository billingRepo,
-                          CustomerRepository customerRepo) {
+                          CustomerRepository customerRepo,
+                          BillAdjustmentRepository adjustmentRepo,
+                          ProductPriceHistoryService priceHistoryService) {
         this.deliveryRepo = deliveryRepo;
         this.addonRepo = addonRepo;
         this.billingRepo = billingRepo;
         this.customerRepo = customerRepo;
+        this.adjustmentRepo = adjustmentRepo;
+        this.priceHistoryService = priceHistoryService;
     }
 
     /**
      * Generates (or regenerates) the monthly bill for a customer.
      *
      * Calculation:
-     *   subscriptionAmount = sum of (quantity × pricePerUnit) for DELIVERED subscription deliveries
-     *   addonAmount        = sum of (quantity × pricePerUnit) for DELIVERED addon orders
+     *   subscriptionAmount = sum of (quantity × price effective on delivery date) for DELIVERED deliveries
+     *   addonAmount        = sum of (quantity × price effective on delivery date) for DELIVERED addon orders
      *   previousPending    = remainingAmount of last month's bill (if any)
-     *   totalAmount        = subscriptionAmount + addonAmount + previousPending
-     *   remainingAmount    = totalAmount - paidAmount (paidAmount reset to 0 on fresh generate)
+     *   adjustmentAmount   = net sum of manual adjustments (preserved on regenerate)
+     *   totalAmount        = all four combined
+     *   remainingAmount    = totalAmount - paidAmount (paidAmount preserved on regenerate)
      */
     @Transactional
     public BillResponse generateBill(Long customerId, int month, int year) {
         Customer customer = customerRepo.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-        // Prevent duplicate — if bill exists, regenerate it
+        // Reuse existing bill if present (preserves paidAmount and adjustments)
         Billing bill = billingRepo
                 .findByCustomerIdAndMonthAndYear(customerId, month, year)
                 .orElse(new Billing());
@@ -57,7 +67,7 @@ public class BillingService {
         bill.setMonth(month);
         bill.setYear(year);
 
-        // --- Subscription deliveries ---
+        // --- Subscription deliveries (use historically accurate price) ---
         List<Delivery> deliveries = deliveryRepo.findBySubscription_CustomerId(customerId)
                 .stream()
                 .filter(d -> d.getDeliveryDate().getMonthValue() == month
@@ -68,7 +78,8 @@ public class BillingService {
         List<BillResponse.LineItem> subItems = new ArrayList<>();
         double subAmount = 0;
         for (Delivery d : deliveries) {
-            double price = d.getSubscription().getProduct().getPricePerUnit();
+            Long productId = d.getSubscription().getProduct().getId();
+            double price = priceHistoryService.getEffectivePriceOnDate(productId, d.getDeliveryDate());
             subItems.add(new BillResponse.LineItem(
                     d.getDeliveryDate(),
                     d.getSubscription().getProduct().getName(),
@@ -78,7 +89,7 @@ public class BillingService {
             subAmount += d.getQuantity() * price;
         }
 
-        // --- Addon orders ---
+        // --- Addon orders (use historically accurate price) ---
         List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
                 .stream()
                 .filter(a -> a.getDeliveryDate().getMonthValue() == month
@@ -89,7 +100,8 @@ public class BillingService {
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
         double addonAmount = 0;
         for (AddonOrder a : addons) {
-            double price = a.getProduct().getPricePerUnit();
+            double price = priceHistoryService.getEffectivePriceOnDate(
+                    a.getProduct().getId(), a.getDeliveryDate());
             addonItems.add(new BillResponse.LineItem(
                     a.getDeliveryDate(),
                     a.getProduct().getName(),
@@ -102,19 +114,27 @@ public class BillingService {
         // --- Previous month pending ---
         double prevPending = getPreviousMonthPending(customerId, month, year);
 
-        double total = subAmount + addonAmount + prevPending;
+        // --- Manual adjustments (preserved across regenerations) ---
+        double adjAmount = adjustmentRepo.findByBillId(bill.getId() != null ? bill.getId() : -1L)
+                .stream()
+                .mapToDouble(BillAdjustment::getAmount)
+                .sum();
+
+        double total = subAmount + addonAmount + prevPending + adjAmount;
 
         bill.setSubscriptionAmount(subAmount);
         bill.setAddonAmount(addonAmount);
         bill.setPreviousPendingAmount(prevPending);
+        bill.setAdjustmentAmount(adjAmount);
         bill.setTotalAmount(total);
-        // Keep paidAmount if bill already existed (partial payment scenario)
         double paid = bill.getPaidAmount();
         bill.setRemainingAmount(total - paid);
         bill.setStatus(bill.getRemainingAmount() <= 0 ? "PAID" : "PENDING");
 
         Billing saved = billingRepo.save(bill);
-        return toResponse(saved, subItems, addonItems);
+
+        List<BillAdjustment> adjustments = adjustmentRepo.findByBillId(saved.getId());
+        return toResponse(saved, subItems, addonItems, adjustments);
     }
 
     public BillResponse getBillDetail(Long billId) {
@@ -134,12 +154,13 @@ public class BillingService {
 
         List<BillResponse.LineItem> subItems = new ArrayList<>();
         for (Delivery d : deliveries) {
+            Long productId = d.getSubscription().getProduct().getId();
+            double price = priceHistoryService.getEffectivePriceOnDate(productId, d.getDeliveryDate());
             subItems.add(new BillResponse.LineItem(
                     d.getDeliveryDate(),
                     d.getSubscription().getProduct().getName(),
                     d.getSubscription().getProduct().getUnit(),
-                    d.getQuantity(),
-                    d.getSubscription().getProduct().getPricePerUnit()));
+                    d.getQuantity(), price));
         }
 
         List<AddonOrder> addons = addonRepo.findByCustomerId(customerId)
@@ -151,16 +172,56 @@ public class BillingService {
 
         List<BillResponse.LineItem> addonItems = new ArrayList<>();
         for (AddonOrder a : addons) {
+            double price = priceHistoryService.getEffectivePriceOnDate(
+                    a.getProduct().getId(), a.getDeliveryDate());
             addonItems.add(new BillResponse.LineItem(
                     a.getDeliveryDate(),
                     a.getProduct().getName(),
                     a.getProduct().getUnit(),
-                    a.getQuantity(),
-                    a.getProduct().getPricePerUnit()));
+                    a.getQuantity(), price));
         }
 
-        return toResponse(bill, subItems, addonItems);
+        List<BillAdjustment> adjustments = adjustmentRepo.findByBillId(billId);
+        return toResponse(bill, subItems, addonItems, adjustments);
     }
+
+    // --- Adjustment operations ---
+
+    @Transactional
+    public BillAdjustment addAdjustment(Long billId, BillAdjustmentRequest request) {
+        Billing bill = billingRepo.findById(billId)
+                .orElseThrow(() -> new RuntimeException("Bill not found"));
+
+        BillAdjustment adj = new BillAdjustment();
+        adj.setBill(bill);
+        adj.setAmount(request.getAmount());
+        adj.setDescription(request.getDescription());
+        BillAdjustment saved = adjustmentRepo.save(adj);
+
+        // Recalculate bill totals
+        recalculate(bill);
+        return saved;
+    }
+
+    @Transactional
+    public void removeAdjustment(Long billId, Long adjId) {
+        BillAdjustment adj = adjustmentRepo.findById(adjId)
+                .orElseThrow(() -> new RuntimeException("Adjustment not found"));
+        if (!adj.getBill().getId().equals(billId)) {
+            throw new RuntimeException("Adjustment does not belong to this bill");
+        }
+        adjustmentRepo.delete(adj);
+        Billing bill = billingRepo.findById(billId).orElseThrow();
+        recalculate(bill);
+    }
+
+    public List<BillAdjustment> getAdjustments(Long billId) {
+        billingRepo.findById(billId)
+                .orElseThrow(() -> new RuntimeException("Bill not found"));
+        return adjustmentRepo.findByBillId(billId);
+    }
+
+    // --- Other read methods ---
 
     public List<Billing> getBillsByCustomer(Long customerId) {
         customerRepo.findById(customerId)
@@ -183,6 +244,18 @@ public class BillingService {
 
     // --- private helpers ---
 
+    private void recalculate(Billing bill) {
+        double adjAmount = adjustmentRepo.findByBillId(bill.getId())
+                .stream().mapToDouble(BillAdjustment::getAmount).sum();
+        double total = bill.getSubscriptionAmount() + bill.getAddonAmount()
+                + bill.getPreviousPendingAmount() + adjAmount;
+        bill.setAdjustmentAmount(adjAmount);
+        bill.setTotalAmount(total);
+        bill.setRemainingAmount(total - bill.getPaidAmount());
+        bill.setStatus(bill.getRemainingAmount() <= 0 ? "PAID" : "PENDING");
+        billingRepo.save(bill);
+    }
+
     private double getPreviousMonthPending(Long customerId, int month, int year) {
         int prevMonth = month == 1 ? 12 : month - 1;
         int prevYear = month == 1 ? year - 1 : year;
@@ -194,7 +267,8 @@ public class BillingService {
 
     private BillResponse toResponse(Billing bill,
                                      List<BillResponse.LineItem> subItems,
-                                     List<BillResponse.LineItem> addonItems) {
+                                     List<BillResponse.LineItem> addonItems,
+                                     List<BillAdjustment> adjustments) {
         BillResponse r = new BillResponse();
         r.setBillId(bill.getId());
         r.setCustomerId(bill.getCustomer().getId());
@@ -206,6 +280,8 @@ public class BillingService {
         r.setAddonItems(addonItems);
         r.setAddonAmount(bill.getAddonAmount());
         r.setPreviousPendingAmount(bill.getPreviousPendingAmount());
+        r.setAdjustmentAmount(bill.getAdjustmentAmount());
+        r.setAdjustments(adjustments);
         r.setTotalAmount(bill.getTotalAmount());
         r.setPaidAmount(bill.getPaidAmount());
         r.setRemainingAmount(bill.getRemainingAmount());
