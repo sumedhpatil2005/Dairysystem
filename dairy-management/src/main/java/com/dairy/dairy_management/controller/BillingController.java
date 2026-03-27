@@ -6,6 +6,7 @@ import com.dairy.dairy_management.dto.PaymentResponse;
 import com.dairy.dairy_management.dto.RecordPaymentRequest;
 import com.dairy.dairy_management.entity.BillAdjustment;
 import com.dairy.dairy_management.entity.Billing;
+import com.dairy.dairy_management.entity.Payment;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.PaymentService;
 import jakarta.validation.Valid;
