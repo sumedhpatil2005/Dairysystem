@@ -1,13 +1,11 @@
 package com.dairy.dairy_management.dto;
 
+import com.dairy.dairy_management.entity.BillAdjustment;
 import lombok.Data;
 
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Full bill breakdown returned by GET /billing/{id}/detail and POST /billing/generate.
- */
 @Data
 public class BillResponse {
 
@@ -28,7 +26,13 @@ public class BillResponse {
     // Unpaid balance carried from the previous month
     private double previousPendingAmount;
 
-    // subscriptionAmount + addonAmount + previousPendingAmount
+    // Net sum of manual adjustments (negative = deductions, positive = surcharges)
+    private double adjustmentAmount;
+
+    // Manual adjustments list
+    private List<BillAdjustment> adjustments;
+
+    // subscriptionAmount + addonAmount + previousPendingAmount + adjustmentAmount
     private double totalAmount;
 
     private double paidAmount;

@@ -10,13 +10,23 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository repo;
+    private final ProductPriceHistoryService priceHistoryService;
 
-    public ProductService(ProductRepository repo) {
+    public ProductService(ProductRepository repo, ProductPriceHistoryService priceHistoryService) {
         this.repo = repo;
+        this.priceHistoryService = priceHistoryService;
     }
 
     public Product create(Product product) {
-        return repo.save(product);
+        Product saved = repo.save(product);
+        // Seed initial price history entry
+        priceHistoryService.seedInitialPrice(saved);
+        return saved;
+    }
+
+    public Product getById(Long id) {
+        return repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
     }
 
     public List<Product> getAll() {

@@ -28,7 +28,10 @@ public class Billing {
     // Carried over unpaid balance from the previous month's bill
     private double previousPendingAmount = 0;
 
-    // subscriptionAmount + addonAmount + previousPendingAmount
+    // Net sum of all manual adjustments (negative = deductions, positive = surcharges)
+    private double adjustmentAmount = 0;
+
+    // subscriptionAmount + addonAmount + previousPendingAmount + adjustmentAmount
     private double totalAmount = 0;
 
     private double paidAmount = 0;
