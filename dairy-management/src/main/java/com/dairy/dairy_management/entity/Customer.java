@@ -37,6 +37,8 @@ public class Customer {
 
     private Integer lineSequence;
 
+    private boolean isActive = true;
+
     private LocalDateTime createdAt;
 
     @PrePersist
