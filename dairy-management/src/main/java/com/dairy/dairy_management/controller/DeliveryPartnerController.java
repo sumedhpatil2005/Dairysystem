@@ -5,6 +5,7 @@ import com.dairy.dairy_management.service.DeliveryPartnerService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -69,5 +70,20 @@ public class DeliveryPartnerController {
             @RequestParam(defaultValue = "#{T(java.time.LocalDate).now().toString()}")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(service.getDailyList(id, date));
+    }
+
+    /**
+     * Delivery partner gets their OWN daily list using their JWT token — no need to know their partner ID.
+     * Example: GET /delivery-partners/me/daily-list
+     * Example: GET /delivery-partners/me/daily-list?date=2026-03-27
+     */
+    @GetMapping("/me/daily-list")
+    public ResponseEntity<DailyDeliveryListResponse> getMyDailyList(
+            Authentication authentication,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        if (date == null) date = LocalDate.now();
+        String username = authentication.getName();
+        return ResponseEntity.ok(service.getDailyListByUsername(username, date));
     }
 }

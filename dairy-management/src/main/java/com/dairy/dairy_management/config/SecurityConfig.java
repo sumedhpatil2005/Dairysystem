@@ -39,14 +39,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/error").permitAll()
 
-                        // DELIVERY_PARTNER: update delivery/addon status + view their daily list + read deliveries
+                        // DELIVERY_PARTNER: status updates + their own daily list only
                         .requestMatchers(HttpMethod.PATCH, "/deliveries/*/status")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
                         .requestMatchers(HttpMethod.PATCH, "/orders/addon/*/status")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
-                        .requestMatchers(HttpMethod.GET, "/delivery-partners/*/daily-list")
+                        .requestMatchers(HttpMethod.GET, "/delivery-partners/me/daily-list")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
-                        .requestMatchers(HttpMethod.GET, "/deliveries/**")
+                        .requestMatchers(HttpMethod.GET, "/delivery-partners/*/daily-list")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
 
                         // Everything else is ADMIN only
