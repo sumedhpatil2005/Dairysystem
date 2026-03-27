@@ -2,9 +2,12 @@ package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.BillAdjustmentRequest;
 import com.dairy.dairy_management.dto.BillResponse;
+import com.dairy.dairy_management.dto.PaymentResponse;
+import com.dairy.dairy_management.dto.RecordPaymentRequest;
 import com.dairy.dairy_management.entity.BillAdjustment;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.service.BillingService;
+import com.dairy.dairy_management.service.PaymentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +19,11 @@ import java.util.List;
 public class BillingController {
 
     private final BillingService service;
+    private final PaymentService paymentService;
 
-    public BillingController(BillingService service) {
+    public BillingController(BillingService service, PaymentService paymentService) {
         this.service = service;
+        this.paymentService = paymentService;
     }
 
     /**
@@ -74,6 +79,31 @@ public class BillingController {
     @GetMapping("/month")
     public List<Billing> getByMonth(@RequestParam int month, @RequestParam int year) {
         return service.getBillsByMonth(month, year);
+    }
+
+    // --- Payments ---
+
+    /**
+     * Record a full or partial payment against a bill.
+     * Bill is automatically marked PAID when remainingAmount reaches 0.
+     *
+     * Example: POST /billing/1/payments
+     * { "amount": 500.0, "mode": "UPI", "referenceNumber": "TXN123456", "note": "Partial payment" }
+     */
+    @PostMapping("/{id}/payments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Payment recordPayment(@PathVariable Long id,
+                                 @Valid @RequestBody RecordPaymentRequest request) {
+        return paymentService.recordPayment(id, request);
+    }
+
+    /**
+     * Get all payments recorded against a bill.
+     * Example: GET /billing/1/payments
+     */
+    @GetMapping("/{id}/payments")
+    public List<PaymentResponse> getPayments(@PathVariable Long id) {
+        return paymentService.getPaymentsByBill(id);
     }
 
     // --- Bill Adjustments ---
