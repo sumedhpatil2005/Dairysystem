@@ -45,7 +45,9 @@ public class SecurityConfig {
                         // DELIVERY_PARTNER: update addon order status
                         .requestMatchers(HttpMethod.PATCH, "/orders/addon/*/status")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
-                        // DELIVERY_PARTNER: only their OWN daily list via /me — not any partner's by ID
+                        // DELIVERY_PARTNER: own profile and own daily list via /me — not any partner's by ID
+                        .requestMatchers(HttpMethod.GET, "/delivery-partners/me")
+                            .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
                         .requestMatchers(HttpMethod.GET, "/delivery-partners/me/daily-list")
                             .hasAnyRole("ADMIN", "DELIVERY_PARTNER")
 

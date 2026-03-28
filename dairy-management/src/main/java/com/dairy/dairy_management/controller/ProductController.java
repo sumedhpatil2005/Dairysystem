@@ -57,4 +57,14 @@ public class ProductController {
     public List<ProductPriceHistory> getPriceHistory(@PathVariable Long id) {
         return priceHistoryService.getHistory(id);
     }
+
+    /**
+     * Delete a product. Blocked if any active subscriptions reference it.
+     * Example: DELETE /products/1
+     */
+    @DeleteMapping("/{id}")
+    public org.springframework.http.ResponseEntity<String> delete(@PathVariable Long id) {
+        service.delete(id);
+        return org.springframework.http.ResponseEntity.ok("Product deleted successfully");
+    }
 }

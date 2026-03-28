@@ -26,4 +26,8 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
             Long customerId, LocalDate start, LocalDate end);
 
     boolean existsBySubscriptionIdAndDeliveryDate(Long subscriptionId, LocalDate date);
+
+    // Partner monthly report — all deliveries for a line within a date range
+    List<Delivery> findBySubscription_Customer_DeliveryLine_IdAndDeliveryDateBetween(
+            Long lineId, LocalDate start, LocalDate end);
 }

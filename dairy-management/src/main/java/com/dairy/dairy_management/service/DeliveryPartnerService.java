@@ -34,6 +34,18 @@ public class DeliveryPartnerService {
     }
 
     /**
+     * Returns the profile of the currently logged-in delivery partner.
+     * Used by GET /delivery-partners/me
+     */
+    public DeliveryPartnerResponse getPartnerProfileByUsername(String username) {
+        User user = userRepo.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        DeliveryPartner partner = partnerRepo.findByUserId(user.getId())
+                .orElseThrow(() -> new RuntimeException("No delivery partner profile found for this user"));
+        return toResponse(partner);
+    }
+
+    /**
      * Gets the daily list for the currently logged-in delivery partner using their username from JWT.
      */
     public DailyDeliveryListResponse getDailyListByUsername(String username, LocalDate date) {

@@ -2,6 +2,7 @@ package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.CustomerMonthlyReport;
 import com.dairy.dairy_management.dto.DailyReportResponse;
+import com.dairy.dairy_management.dto.PartnerMonthlyReport;
 import com.dairy.dairy_management.dto.RevenueReportResponse;
 import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.service.ReportService;
@@ -60,5 +61,17 @@ public class ReportController {
                                                   @RequestParam int month,
                                                   @RequestParam int year) {
         return service.getCustomerMonthlyReport(id, month, year);
+    }
+
+    /**
+     * Monthly performance report for a delivery partner.
+     * Shows delivered / skipped / not-reachable rates overall and per line.
+     * Example: GET /reports/partner/1/monthly?month=3&year=2026
+     */
+    @GetMapping("/partner/{id}/monthly")
+    public PartnerMonthlyReport partnerMonthly(@PathVariable Long id,
+                                                @RequestParam int month,
+                                                @RequestParam int year) {
+        return service.getPartnerMonthlyReport(id, month, year);
     }
 }

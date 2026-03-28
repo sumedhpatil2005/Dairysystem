@@ -2,8 +2,10 @@ package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.CustomerMonthlyReport;
 import com.dairy.dairy_management.dto.DailyReportResponse;
+import com.dairy.dairy_management.dto.PartnerMonthlyReport;
 import com.dairy.dairy_management.dto.RevenueReportResponse;
 import com.dairy.dairy_management.entity.*;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.*;
 import org.springframework.stereotype.Service;
 
@@ -20,19 +22,22 @@ public class ReportService {
     private final CustomerRepository customerRepo;
     private final DeliveryLineRepository lineRepo;
     private final DeliveryPartnerLineRepository partnerLineRepo;
+    private final DeliveryPartnerRepository partnerRepo;
 
     public ReportService(DeliveryRepository deliveryRepo,
                          AddonOrderRepository addonRepo,
                          BillingRepository billingRepo,
                          CustomerRepository customerRepo,
                          DeliveryLineRepository lineRepo,
-                         DeliveryPartnerLineRepository partnerLineRepo) {
+                         DeliveryPartnerLineRepository partnerLineRepo,
+                         DeliveryPartnerRepository partnerRepo) {
         this.deliveryRepo = deliveryRepo;
         this.addonRepo = addonRepo;
         this.billingRepo = billingRepo;
         this.customerRepo = customerRepo;
         this.lineRepo = lineRepo;
         this.partnerLineRepo = partnerLineRepo;
+        this.partnerRepo = partnerRepo;
     }
 
     /**
@@ -165,5 +170,55 @@ public class ReportService {
         report.setBill(bill);
 
         return report;
+    }
+
+    /**
+     * Monthly performance breakdown for a delivery partner.
+     * Shows total assigned / delivered / skipped / not-reachable / pending
+     * at both the partner level and per-line level.
+     */
+    public PartnerMonthlyReport getPartnerMonthlyReport(Long partnerId, int month, int year) {
+        DeliveryPartner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new NotFoundException("Delivery partner not found"));
+
+        List<DeliveryPartnerLine> assignments = partnerLineRepo.findByDeliveryPartnerId(partnerId);
+
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
+        int totalAssigned = 0, delivered = 0, skipped = 0, notReachable = 0, pending = 0;
+        List<PartnerMonthlyReport.LinePerformance> linePerfs = new ArrayList<>();
+
+        for (DeliveryPartnerLine assignment : assignments) {
+            DeliveryLine line = assignment.getLine();
+
+            List<Delivery> lineDeliveries = deliveryRepo
+                    .findBySubscription_Customer_DeliveryLine_IdAndDeliveryDateBetween(
+                            line.getId(), start, end);
+
+            int lTotal       = lineDeliveries.size();
+            int lDelivered   = (int) lineDeliveries.stream().filter(d -> "DELIVERED".equals(d.getStatus())).count();
+            int lSkipped     = (int) lineDeliveries.stream().filter(d -> "SKIPPED".equals(d.getStatus())).count();
+            int lNR          = (int) lineDeliveries.stream().filter(d -> "NOT_REACHABLE".equals(d.getStatus())).count();
+            int lPending     = (int) lineDeliveries.stream().filter(d -> "PENDING".equals(d.getStatus())).count();
+
+            linePerfs.add(new PartnerMonthlyReport.LinePerformance(
+                    line.getId(), line.getName(), lTotal, lDelivered, lSkipped, lNR, lPending));
+
+            totalAssigned += lTotal;
+            delivered     += lDelivered;
+            skipped       += lSkipped;
+            notReachable  += lNR;
+            pending       += lPending;
+        }
+
+        // Round to 1 decimal place: e.g. 95.7%
+        double rate = totalAssigned == 0 ? 0.0
+                : Math.round(delivered * 1000.0 / totalAssigned) / 10.0;
+
+        return new PartnerMonthlyReport(
+                partnerId, partner.getName(), month, year,
+                totalAssigned, delivered, skipped, notReachable, pending,
+                rate, linePerfs);
     }
 }
