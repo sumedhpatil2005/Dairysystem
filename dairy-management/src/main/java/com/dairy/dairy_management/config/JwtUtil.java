@@ -20,15 +20,27 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private long expiration;
 
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(UserDetails userDetails) {
+        return buildToken(userDetails.getUsername(), expiration, "access");
+    }
+
+    public String generateRefreshToken(UserDetails userDetails) {
+        return buildToken(userDetails.getUsername(), refreshExpiration, "refresh");
+    }
+
+    private String buildToken(String username, long exp, String type) {
         return Jwts.builder()
-                .subject(userDetails.getUsername())
+                .subject(username)
+                .claim("type", type)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .expiration(new Date(System.currentTimeMillis() + exp))
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -40,6 +52,18 @@ public class JwtUtil {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    /**
+     * Validates that a token is a refresh token (not an access token).
+     * Prevents a client from using an access token as a refresh token.
+     */
+    public boolean isRefreshToken(String token) {
+        return "refresh".equals(parseClaims(token).get("type", String.class));
+    }
+
+    public long getExpirationMs() {
+        return expiration;
     }
 
     private boolean isTokenExpired(String token) {
