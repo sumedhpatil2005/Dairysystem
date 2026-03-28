@@ -2,6 +2,7 @@ package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.BillAdjustmentRequest;
 import com.dairy.dairy_management.dto.BillResponse;
+import com.dairy.dairy_management.dto.BulkBillResult;
 import com.dairy.dairy_management.dto.PaymentResponse;
 import com.dairy.dairy_management.dto.RecordPaymentRequest;
 import com.dairy.dairy_management.entity.BillAdjustment;
@@ -66,6 +67,22 @@ public class BillingController {
      * Get all bills for a customer (history).
      * Example: GET /billing/customer/1
      */
+    /**
+     * Generate bills for ALL active customers for a given month — in one call.
+     * Idempotent: regenerates existing bills without losing payments or adjustments.
+     * Example: POST /billing/generate-all?month=3&year=2026
+     */
+    @PostMapping("/generate-all")
+    public BulkBillResult generateAll(@RequestParam int month, @RequestParam int year) {
+        if (month < 1 || month > 12) {
+            throw new IllegalArgumentException("month must be between 1 and 12");
+        }
+        if (year < 2000) {
+            throw new IllegalArgumentException("year must be 2000 or later");
+        }
+        return service.generateAllBills(month, year);
+    }
+
     @GetMapping("/customer/{id}")
     public List<Billing> getByCustomer(@PathVariable Long id) {
         return service.getBillsByCustomer(id);

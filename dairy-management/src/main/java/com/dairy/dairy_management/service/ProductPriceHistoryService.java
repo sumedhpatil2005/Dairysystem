@@ -7,6 +7,7 @@ import com.dairy.dairy_management.repository.ProductPriceHistoryRepository;
 import com.dairy.dairy_management.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.dairy.dairy_management.service.AuditLogService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -16,11 +17,14 @@ public class ProductPriceHistoryService {
 
     private final ProductPriceHistoryRepository historyRepo;
     private final ProductRepository productRepo;
+    private final AuditLogService auditLogService;
 
     public ProductPriceHistoryService(ProductPriceHistoryRepository historyRepo,
-                                      ProductRepository productRepo) {
+                                      ProductRepository productRepo,
+                                      AuditLogService auditLogService) {
         this.historyRepo = historyRepo;
         this.productRepo = productRepo;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -66,7 +70,15 @@ public class ProductPriceHistoryService {
 
         // Update the product's current price
         product.setPricePerUnit(request.getNewPrice());
-        return productRepo.save(product);
+        Product saved = productRepo.save(product);
+
+        auditLogService.log("PRICE_UPDATED", "PRODUCT", productId,
+                String.format("Price updated for '%s': %.2f → %.2f (effective %s). Reason: %s",
+                        product.getName(), newEntry.getPrice(),
+                        request.getNewPrice(), effectiveFrom,
+                        request.getReason() != null ? request.getReason() : "not specified"));
+
+        return saved;
     }
 
     public List<ProductPriceHistory> getHistory(Long productId) {

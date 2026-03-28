@@ -21,13 +21,16 @@ public class PaymentService {
     private final PaymentMapper paymentMapper;
     private final PaymentRepository paymentRepo;
     private final BillingRepository billingRepo;
+    private final AuditLogService auditLogService;
 
     public PaymentService(PaymentRepository paymentRepo,
                           BillingRepository billingRepo,
-                          PaymentMapper paymentMapper) {
+                          PaymentMapper paymentMapper,
+                          AuditLogService auditLogService) {
         this.paymentRepo = paymentRepo;
         this.billingRepo = billingRepo;
         this.paymentMapper = paymentMapper;
+        this.auditLogService = auditLogService;
     }
 
     public List<PaymentResponse> getPaymentsByBill(Long billId) {
@@ -87,7 +90,14 @@ public class PaymentService {
         bill.setStatus(bill.getRemainingAmount() <= 0 ? "PAID" : "PENDING");
         billingRepo.save(bill);
 
-        return paymentRepo.save(payment);
+        Payment saved = paymentRepo.save(payment);
+
+        auditLogService.log("PAYMENT_RECORDED", "BILLING", billId,
+                String.format("Payment of %.2f via %s recorded. Paid=%.2f Remaining=%.2f Status=%s",
+                        request.getAmount(), payment.getMode(),
+                        bill.getPaidAmount(), bill.getRemainingAmount(), bill.getStatus()));
+
+        return saved;
     }
 
     // Kept for backward compatibility
