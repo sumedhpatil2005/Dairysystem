@@ -66,6 +66,10 @@ public class JwtUtil {
         return expiration;
     }
 
+    public long getRefreshExpirationMs() {
+        return refreshExpiration;
+    }
+
     private boolean isTokenExpired(String token) {
         return parseClaims(token).getExpiration().before(new Date());
     }
