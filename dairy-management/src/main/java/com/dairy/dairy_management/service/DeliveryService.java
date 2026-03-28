@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.dairy.dairy_management.service.AuditLogService;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -25,15 +26,18 @@ public class DeliveryService {
     private final SubscriptionService subscriptionService;
     private final HolidayService holidayService;
     private final DeliveryOverrideRepository overrideRepo;
+    private final AuditLogService auditLogService;
 
     public DeliveryService(DeliveryRepository repo,
                            SubscriptionService subscriptionService,
                            HolidayService holidayService,
-                           DeliveryOverrideRepository overrideRepo) {
+                           DeliveryOverrideRepository overrideRepo,
+                           AuditLogService auditLogService) {
         this.repo = repo;
         this.subscriptionService = subscriptionService;
         this.holidayService = holidayService;
         this.overrideRepo = overrideRepo;
+        this.auditLogService = auditLogService;
     }
 
     public Delivery create(Delivery delivery) {
@@ -150,7 +154,15 @@ public class DeliveryService {
             throw new ConflictException("Delivery is already marked as skipped");
         }
         delivery.setStatus("SKIPPED");
-        return repo.save(delivery);
+        Delivery saved = repo.save(delivery);
+
+        auditLogService.log("DELIVERY_VOIDED", "DELIVERY", deliveryId,
+                String.format("Delivery %d marked as mistake (SKIPPED). Date=%s Customer=%s",
+                        deliveryId,
+                        delivery.getDeliveryDate(),
+                        delivery.getSubscription().getCustomer().getName()));
+
+        return saved;
     }
 
     /**

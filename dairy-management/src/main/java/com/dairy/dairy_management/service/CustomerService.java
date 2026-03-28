@@ -15,9 +15,11 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository repo;
+    private final AuditLogService auditLogService;
 
-    public CustomerService(CustomerRepository repo) {
+    public CustomerService(CustomerRepository repo, AuditLogService auditLogService) {
         this.repo = repo;
+        this.auditLogService = auditLogService;
     }
 
     public Customer create(Customer customer) {
@@ -90,7 +92,10 @@ public class CustomerService {
             throw new ConflictException("Customer is already inactive");
         }
         customer.setActive(false);
-        return repo.save(customer);
+        Customer saved = repo.save(customer);
+        auditLogService.log("CUSTOMER_DEACTIVATED", "CUSTOMER", id,
+                "Customer '" + customer.getName() + "' (phone: " + customer.getPhone() + ") deactivated");
+        return saved;
     }
 
     public Customer activate(Long id) {
@@ -100,7 +105,10 @@ public class CustomerService {
             throw new ConflictException("Customer is already active");
         }
         customer.setActive(true);
-        return repo.save(customer);
+        Customer saved = repo.save(customer);
+        auditLogService.log("CUSTOMER_ACTIVATED", "CUSTOMER", id,
+                "Customer '" + customer.getName() + "' (phone: " + customer.getPhone() + ") reactivated");
+        return saved;
     }
 
     public void delete(Long id) {

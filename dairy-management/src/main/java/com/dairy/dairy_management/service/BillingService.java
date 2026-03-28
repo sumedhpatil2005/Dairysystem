@@ -2,6 +2,7 @@ package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.BillAdjustmentRequest;
 import com.dairy.dairy_management.dto.BillResponse;
+import com.dairy.dairy_management.dto.BulkBillResult;
 import com.dairy.dairy_management.entity.AddonOrder;
 import com.dairy.dairy_management.entity.BillAdjustment;
 import com.dairy.dairy_management.entity.Billing;
@@ -32,19 +33,22 @@ public class BillingService {
     private final CustomerRepository customerRepo;
     private final BillAdjustmentRepository adjustmentRepo;
     private final ProductPriceHistoryService priceHistoryService;
+    private final AuditLogService auditLogService;
 
     public BillingService(DeliveryRepository deliveryRepo,
                           AddonOrderRepository addonRepo,
                           BillingRepository billingRepo,
                           CustomerRepository customerRepo,
                           BillAdjustmentRepository adjustmentRepo,
-                          ProductPriceHistoryService priceHistoryService) {
+                          ProductPriceHistoryService priceHistoryService,
+                          AuditLogService auditLogService) {
         this.deliveryRepo = deliveryRepo;
         this.addonRepo = addonRepo;
         this.billingRepo = billingRepo;
         this.customerRepo = customerRepo;
         this.adjustmentRepo = adjustmentRepo;
         this.priceHistoryService = priceHistoryService;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -142,8 +146,46 @@ public class BillingService {
 
         Billing saved = billingRepo.save(bill);
 
+        auditLogService.log("BILL_GENERATED", "BILLING", saved.getId(),
+                String.format("Bill generated for customer %d (%s) — %d/%d | Total=%.2f",
+                        customerId, customer.getName(), month, year, total));
+
         List<BillAdjustment> adjustments = adjustmentRepo.findByBillId(saved.getId());
         return toResponse(saved, subItems, addonItems, adjustments);
+    }
+
+    /**
+     * Generates bills for ALL active customers for the given month/year.
+     * Skips customers who have no delivered items (bill would be zero).
+     * Idempotent — regenerates existing bills without losing payments or adjustments.
+     *
+     * Used by:
+     *  - POST /billing/generate-all?month=&year=   (manual admin trigger)
+     *  - ScheduledJobService.autoGenerateMonthlyBills()  (automated on 1st of month)
+     */
+    @Transactional
+    public BulkBillResult generateAllBills(int month, int year) {
+        List<Customer> customers = customerRepo.findByIsActiveTrue();
+        int generated = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (Customer customer : customers) {
+            try {
+                generateBill(customer.getId(), month, year);
+                generated++;
+            } catch (Exception e) {
+                errors.add("Customer " + customer.getId()
+                        + " (" + customer.getName() + "): " + e.getMessage());
+                skipped++;
+            }
+        }
+
+        auditLogService.log("BULK_BILL_GENERATED", "BILLING", null,
+                String.format("Bulk billing %d/%d — Generated=%d, Skipped=%d, Errors=%d",
+                        month, year, generated, skipped, errors.size()));
+
+        return new BulkBillResult(month, year, customers.size(), generated, skipped, errors);
     }
 
     public BillResponse getBillDetail(Long billId) {
@@ -208,8 +250,12 @@ public class BillingService {
         adj.setAmount(request.getAmount());
         adj.setDescription(request.getDescription());
         BillAdjustment saved = adjustmentRepo.save(adj);
-
         recalculate(bill);
+
+        auditLogService.log("ADJUSTMENT_ADDED", "BILLING", billId,
+                String.format("Adjustment added: type=%s amount=%.2f — %s",
+                        request.getAdjustmentType(), request.getAmount(), request.getDescription()));
+
         return saved;
     }
 
@@ -223,6 +269,10 @@ public class BillingService {
         adjustmentRepo.delete(adj);
         Billing bill = billingRepo.findById(billId).orElseThrow();
         recalculate(bill);
+
+        auditLogService.log("ADJUSTMENT_REMOVED", "BILLING", billId,
+                String.format("Adjustment %d removed (type=%s amount=%.2f)",
+                        adjId, adj.getAdjustmentType(), adj.getAmount()));
     }
 
     public List<BillAdjustment> getAdjustments(Long billId) {

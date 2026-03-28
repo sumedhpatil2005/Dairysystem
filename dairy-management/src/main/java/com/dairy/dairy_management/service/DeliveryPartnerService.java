@@ -3,13 +3,11 @@ package com.dairy.dairy_management.service;
 import com.dairy.dairy_management.dto.*;
 import com.dairy.dairy_management.entity.*;
 import com.dairy.dairy_management.repository.*;
-import com.dairy.dairy_management.repository.AddonOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class DeliveryPartnerService {
@@ -133,56 +131,128 @@ public class DeliveryPartnerService {
         partnerLineRepo.saveAll(toSave);
     }
 
+    /**
+     * Builds the full daily delivery list for the Flutter delivery partner app.
+     *
+     * Response structure:
+     *   loadSummary  <- what to load on the vehicle before leaving
+     *   lines[]      <- routes sorted by partner's line sequence
+     *     societies[]  <- customers grouped by society within each route
+     *       customers[]  <- sorted by lineSequence
+     *         deliveries[]  <- one item per product subscription
+     */
     public DailyDeliveryListResponse getDailyList(Long partnerId, LocalDate date) {
         DeliveryPartner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() -> new RuntimeException("Delivery partner not found"));
 
+        // Fetch assignments sorted by the partner's own line sequence
+        List<DeliveryPartnerLine> assignments = partnerLineRepo.findByDeliveryPartnerId(partnerId);
+        assignments.sort(Comparator.comparingInt(a -> a.getLineSequence() != null ? a.getLineSequence() : 999));
+
+        // Load summary accumulators
+        // key = "productName|unit"  -> running total quantity
+        Map<String, double[]> productTotals = new LinkedHashMap<>();
+        int totalCustomers = 0;
+        int totalDeliveries = 0;
+
         List<DailyDeliveryListResponse.LineDeliveries> lineDeliveries = new ArrayList<>();
 
-        for (DeliveryPartnerLine assignment : partner.getAssignedLines()) {
+        for (DeliveryPartnerLine assignment : assignments) {
             DeliveryLine line = assignment.getLine();
-            List<DailyDeliveryListResponse.CustomerDelivery> customerDeliveries = new ArrayList<>();
 
-            for (Customer customer : line.getCustomers()) {
+            // Sort customers in this line by their route position (lineSequence)
+            List<Customer> customers = new ArrayList<>(line.getCustomers());
+            customers.sort(Comparator.comparingInt(c -> c.getLineSequence() != null ? c.getLineSequence() : 999));
+
+            // Group customers by society (LinkedHashMap preserves insertion order)
+            // Societies appear in the order of the first customer from that society
+            Map<String, List<DailyDeliveryListResponse.CustomerDelivery>> societyMap = new LinkedHashMap<>();
+
+            for (Customer customer : customers) {
+                totalCustomers++;
+
+                // All deliveries for this customer on the requested date
                 List<Delivery> deliveries = deliveryRepo
                         .findBySubscription_CustomerIdAndDeliveryDate(customer.getId(), date);
 
-                if (deliveries.isEmpty()) {
-                    // No delivery generated yet for this date — show customer slot with nulls
-                    customerDeliveries.add(new DailyDeliveryListResponse.CustomerDelivery(
-                            customer.getId(),
-                            customer.getName(),
-                            customer.getAddress(),
-                            customer.getSocietyName(),
-                            customer.getLineSequence(),
-                            null, null, null
+                // Build one DeliveryItem per product subscription
+                List<DailyDeliveryListResponse.DeliveryItem> items = new ArrayList<>();
+                for (Delivery d : deliveries) {
+                    String productName = d.getSubscription().getProduct().getName();
+                    String unit = d.getSubscription().getProduct().getUnit();
+
+                    items.add(new DailyDeliveryListResponse.DeliveryItem(
+                            d.getId(),
+                            productName,
+                            unit,
+                            d.getQuantity(),
+                            d.getStatus()
                     ));
-                } else {
-                    // One or more deliveries exist (e.g. regular + add-on)
-                    for (Delivery d : deliveries) {
-                        customerDeliveries.add(new DailyDeliveryListResponse.CustomerDelivery(
+
+                    // Count toward load summary only for non-skipped deliveries
+                    if (!"SKIPPED".equalsIgnoreCase(d.getStatus())) {
+                        totalDeliveries++;
+                        String key = productName + "|" + unit;
+                        productTotals.computeIfAbsent(key, k -> new double[]{0})[0] += d.getQuantity();
+                    }
+                }
+
+                DailyDeliveryListResponse.CustomerDelivery cd =
+                        new DailyDeliveryListResponse.CustomerDelivery(
                                 customer.getId(),
                                 customer.getName(),
                                 customer.getAddress(),
                                 customer.getSocietyName(),
                                 customer.getLineSequence(),
-                                d.getId(),
-                                d.getQuantity(),
-                                d.getStatus()
-                        ));
-                    }
-                }
+                                items
+                        );
+
+                // Group into society bucket — "Other" if society is blank
+                String society = (customer.getSocietyName() != null && !customer.getSocietyName().isBlank())
+                        ? customer.getSocietyName()
+                        : "Other";
+                societyMap.computeIfAbsent(society, k -> new ArrayList<>()).add(cd);
+            }
+
+            // Convert society map -> ordered list of SocietyGroups
+            List<DailyDeliveryListResponse.SocietyGroup> societies = new ArrayList<>();
+            for (Map.Entry<String, List<DailyDeliveryListResponse.CustomerDelivery>> entry : societyMap.entrySet()) {
+                societies.add(new DailyDeliveryListResponse.SocietyGroup(entry.getKey(), entry.getValue()));
             }
 
             lineDeliveries.add(new DailyDeliveryListResponse.LineDeliveries(
                     line.getId(),
                     line.getName(),
                     assignment.getLineSequence(),
-                    customerDeliveries
+                    societies
             ));
         }
 
-        return new DailyDeliveryListResponse(partner.getId(), partner.getName(), date, lineDeliveries);
+        // Build load summary
+        List<DailyDeliveryListResponse.ProductLoad> productLoads = new ArrayList<>();
+        for (Map.Entry<String, double[]> entry : productTotals.entrySet()) {
+            String[] parts = entry.getKey().split("\\|", 2);
+            productLoads.add(new DailyDeliveryListResponse.ProductLoad(
+                    parts[0],
+                    parts.length > 1 ? parts[1] : "",
+                    entry.getValue()[0]
+            ));
+        }
+
+        DailyDeliveryListResponse.LoadSummary loadSummary =
+                new DailyDeliveryListResponse.LoadSummary(
+                        totalCustomers,
+                        totalDeliveries,
+                        productLoads
+                );
+
+        return new DailyDeliveryListResponse(
+                partner.getId(),
+                partner.getName(),
+                date,
+                loadSummary,
+                lineDeliveries
+        );
     }
 
     private DeliveryPartnerResponse toResponse(DeliveryPartner partner) {
