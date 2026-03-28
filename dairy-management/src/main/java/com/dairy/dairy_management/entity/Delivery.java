@@ -19,7 +19,10 @@ public class Delivery {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @ManyToOne
+    // optional = true forces Hibernate 6 to use LEFT JOIN instead of INNER JOIN.
+    // Without this, Hibernate 6 infers INNER JOIN from @NotNull causing deliveries
+    // with any broken subscription reference to silently disappear from results.
+    @ManyToOne(optional = true)
     @NotNull(message = "Subscription is required")
     private Subscription subscription;
 
