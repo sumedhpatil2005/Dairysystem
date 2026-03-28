@@ -11,6 +11,7 @@ import com.dairy.dairy_management.entity.DeliveryPartner;
 import com.dairy.dairy_management.entity.RefreshToken;
 import com.dairy.dairy_management.entity.Role;
 import com.dairy.dairy_management.entity.User;
+import com.dairy.dairy_management.exception.ConflictException;
 import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.DeliveryPartnerRepository;
 import com.dairy.dairy_management.repository.RefreshTokenRepository;
@@ -100,6 +101,16 @@ public class AuthService implements UserDetailsService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid credentials");
+        }
+
+        // Block login for deactivated delivery partners
+        if (user.getRole() == Role.DELIVERY_PARTNER) {
+            partnerRepository.findByUserId(user.getId())
+                    .filter(p -> !p.isActive())
+                    .ifPresent(p -> {
+                        throw new ConflictException(
+                                "Your account has been deactivated. Please contact the admin.");
+                    });
         }
 
         return buildAuthResponse(user);

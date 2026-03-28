@@ -1,9 +1,11 @@
 package com.dairy.dairy_management.controller;
 
 import com.dairy.dairy_management.dto.CustomerBalanceResponse;
+import com.dairy.dairy_management.dto.CustomerStatementResponse;
 import com.dairy.dairy_management.entity.Customer;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.CustomerService;
+import com.dairy.dairy_management.service.ReportService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,10 +20,14 @@ public class CustomerController {
 
     private final CustomerService service;
     private final BillingService billingService;
+    private final ReportService reportService;
 
-    public CustomerController(CustomerService service, BillingService billingService) {
+    public CustomerController(CustomerService service,
+                              BillingService billingService,
+                              ReportService reportService) {
         this.service = service;
         this.billingService = billingService;
+        this.reportService = reportService;
     }
 
     @PostMapping
@@ -104,5 +110,15 @@ public class CustomerController {
     @GetMapping("/{id}/balance")
     public CustomerBalanceResponse getBalance(@PathVariable Long id) {
         return billingService.getCustomerBalance(id);
+    }
+
+    /**
+     * Full account statement across ALL billing months for a customer.
+     * Shows deliveries, billed/paid/outstanding amounts per month plus lifetime totals.
+     * Example: GET /customers/1/statement
+     */
+    @GetMapping("/{id}/statement")
+    public CustomerStatementResponse getStatement(@PathVariable Long id) {
+        return reportService.getCustomerStatement(id);
     }
 }

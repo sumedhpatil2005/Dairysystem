@@ -28,6 +28,10 @@ public class DeliveryPartner {
     @Pattern(regexp = "\\d{10}", message = "Phone must be 10 digits")
     private String phone;
 
+    /** False = partner is deactivated; they cannot log in and are hidden from active lists. */
+    @Column(nullable = false)
+    private boolean active = true;
+
     @OneToMany(mappedBy = "deliveryPartner", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("lineSequence ASC")
     @JsonIgnore

@@ -82,6 +82,25 @@ public class DeliveryPartnerController {
     }
 
     /**
+     * Deactivate a delivery partner — blocks login, marks inactive.
+     * Their line assignments are preserved; admin can reassign manually.
+     * Example: PATCH /delivery-partners/1/deactivate
+     */
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<DeliveryPartnerResponse> deactivate(@PathVariable Long id) {
+        return ResponseEntity.ok(service.deactivate(id));
+    }
+
+    /**
+     * Reactivate a previously deactivated delivery partner.
+     * Example: PATCH /delivery-partners/1/activate
+     */
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<DeliveryPartnerResponse> activate(@PathVariable Long id) {
+        return ResponseEntity.ok(service.activate(id));
+    }
+
+    /**
      * Delivery partner gets their OWN daily list using their JWT token — no need to know their partner ID.
      * Example: GET /delivery-partners/me/daily-list
      * Example: GET /delivery-partners/me/daily-list?date=2026-03-27

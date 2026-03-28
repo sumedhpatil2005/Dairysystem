@@ -10,11 +10,16 @@ import com.dairy.dairy_management.entity.Billing;
 import com.dairy.dairy_management.entity.Payment;
 import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.PaymentService;
+import com.dairy.dairy_management.service.PdfInvoiceService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,10 +30,14 @@ public class BillingController {
 
     private final BillingService service;
     private final PaymentService paymentService;
+    private final PdfInvoiceService pdfInvoiceService;
 
-    public BillingController(BillingService service, PaymentService paymentService) {
+    public BillingController(BillingService service,
+                             PaymentService paymentService,
+                             PdfInvoiceService pdfInvoiceService) {
         this.service = service;
         this.paymentService = paymentService;
+        this.pdfInvoiceService = pdfInvoiceService;
     }
 
     /**
@@ -150,5 +159,25 @@ public class BillingController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeAdjustment(@PathVariable Long id, @PathVariable Long adjId) {
         service.removeAdjustment(id, adjId);
+    }
+
+    /**
+     * Download a PDF invoice for a bill.
+     * The file is named "invoice-BILL-{id}.pdf" in the Content-Disposition header.
+     * Example: GET /billing/1/invoice/pdf
+     */
+    @GetMapping("/{id}/invoice/pdf")
+    public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable Long id) {
+        byte[] pdf = pdfInvoiceService.generateInvoicePdf(id);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(
+                ContentDisposition.attachment()
+                        .filename("invoice-BILL-" + id + ".pdf")
+                        .build());
+        headers.setContentLength(pdf.length);
+
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 }

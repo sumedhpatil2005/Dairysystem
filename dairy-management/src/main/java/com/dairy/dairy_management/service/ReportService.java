@@ -1,6 +1,7 @@
 package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.CustomerMonthlyReport;
+import com.dairy.dairy_management.dto.CustomerStatementResponse;
 import com.dairy.dairy_management.dto.DailyReportResponse;
 import com.dairy.dairy_management.dto.PartnerMonthlyReport;
 import com.dairy.dairy_management.dto.RevenueReportResponse;
@@ -11,7 +12,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
@@ -170,6 +174,77 @@ public class ReportService {
         report.setBill(bill);
 
         return report;
+    }
+
+    /**
+     * Full account statement for a customer across ALL billing months.
+     *
+     * Uses 2 bulk queries (all bills + all deliveries for the customer) and
+     * groups everything in memory — avoids N+1 per month.
+     */
+    public CustomerStatementResponse getCustomerStatement(Long customerId) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+        // --- Fetch all bills for this customer, sorted oldest → newest ---
+        List<Billing> bills = billingRepo.findByCustomerId(customerId)
+                .stream()
+                .sorted(Comparator.comparingInt(Billing::getYear)
+                        .thenComparingInt(Billing::getMonth))
+                .toList();
+
+        // --- Fetch ALL deliveries for this customer in one query, group by month key ---
+        Map<String, List<Delivery>> deliveriesByMonth =
+                deliveryRepo.findBySubscription_CustomerId(customerId)
+                        .stream()
+                        .collect(Collectors.groupingBy(d ->
+                                d.getDeliveryDate().getYear() + "-" +
+                                d.getDeliveryDate().getMonthValue()));
+
+        // --- Build per-month entries ---
+        List<CustomerStatementResponse.MonthStatement> months = new ArrayList<>();
+        double totalBilled = 0, totalPaid = 0, totalOutstanding = 0;
+
+        for (Billing bill : bills) {
+            String key = bill.getYear() + "-" + bill.getMonth();
+            List<Delivery> monthDeliveries = deliveriesByMonth.getOrDefault(key, List.of());
+
+            int deliveriesCount = monthDeliveries.size();
+            int deliveredCount  = (int) monthDeliveries.stream()
+                    .filter(d -> "DELIVERED".equals(d.getStatus())).count();
+            int skippedCount    = (int) monthDeliveries.stream()
+                    .filter(d -> "SKIPPED".equals(d.getStatus())).count();
+
+            months.add(new CustomerStatementResponse.MonthStatement(
+                    bill.getMonth(), bill.getYear(),
+                    bill.getId(),
+                    bill.getStatus(),
+                    bill.getSubscriptionAmount(),
+                    bill.getAddonAmount(),
+                    bill.getAdjustmentAmount(),
+                    bill.getPreviousPendingAmount(),
+                    bill.getTotalAmount(),
+                    bill.getPaidAmount(),
+                    bill.getRemainingAmount(),
+                    deliveriesCount, deliveredCount, skippedCount
+            ));
+
+            totalBilled      += bill.getTotalAmount();
+            totalPaid        += bill.getPaidAmount();
+            totalOutstanding += bill.getRemainingAmount();
+        }
+
+        return new CustomerStatementResponse(
+                customer.getId(),
+                customer.getName(),
+                customer.getPhone(),
+                customer.getAddress(),
+                totalBilled,
+                totalPaid,
+                totalOutstanding,
+                bills.size(),
+                months
+        );
     }
 
     /**
