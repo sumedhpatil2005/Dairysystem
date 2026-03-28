@@ -16,7 +16,7 @@ public class DeliveryOverride {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(optional = true)
     @NotNull(message = "Customer is required")
     private Customer customer;
 

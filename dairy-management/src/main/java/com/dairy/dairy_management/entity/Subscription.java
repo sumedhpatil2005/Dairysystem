@@ -17,11 +17,14 @@ public class Subscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // optional = true forces Hibernate 6 to use LEFT JOIN instead of INNER JOIN.
+    // Without this, Hibernate 6 infers INNER JOIN from @NotNull, which silently
+    // drops rows when a product/customer row is missing or product_id is null.
+    @ManyToOne(optional = true)
     @NotNull(message = "Customer is required")
     private Customer customer;
 
-    @ManyToOne
+    @ManyToOne(optional = true)
     @NotNull(message = "Product is required")
     private Product product;
 

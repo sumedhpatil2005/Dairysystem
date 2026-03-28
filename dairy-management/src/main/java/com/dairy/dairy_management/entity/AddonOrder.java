@@ -16,11 +16,11 @@ public class AddonOrder {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(optional = true)
     @NotNull(message = "Customer is required")
     private Customer customer;
 
-    @ManyToOne
+    @ManyToOne(optional = true)
     @NotNull(message = "Product is required")
     private Product product;
 
