@@ -13,6 +13,7 @@ public class DeliveryPartnerResponse {
     private String name;
     private String phone;
     private String username;
+    private boolean active;
     private List<AssignedLine> assignedLines;
 
     @Data

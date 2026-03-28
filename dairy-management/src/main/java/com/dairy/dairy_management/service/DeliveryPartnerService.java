@@ -2,6 +2,8 @@ package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.*;
 import com.dairy.dairy_management.entity.*;
+import com.dairy.dairy_management.exception.ConflictException;
+import com.dairy.dairy_management.exception.NotFoundException;
 import com.dairy.dairy_management.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,19 +20,22 @@ public class DeliveryPartnerService {
     private final UserRepository userRepo;
     private final DeliveryRepository deliveryRepo;
     private final AddonOrderRepository addonOrderRepo;
+    private final AuditLogService auditLogService;
 
     public DeliveryPartnerService(DeliveryPartnerRepository partnerRepo,
                                   DeliveryPartnerLineRepository partnerLineRepo,
                                   DeliveryLineRepository lineRepo,
                                   UserRepository userRepo,
                                   DeliveryRepository deliveryRepo,
-                                  AddonOrderRepository addonOrderRepo) {
+                                  AddonOrderRepository addonOrderRepo,
+                                  AuditLogService auditLogService) {
         this.partnerRepo = partnerRepo;
         this.partnerLineRepo = partnerLineRepo;
         this.lineRepo = lineRepo;
         this.userRepo = userRepo;
         this.deliveryRepo = deliveryRepo;
         this.addonOrderRepo = addonOrderRepo;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -91,6 +96,39 @@ public class DeliveryPartnerService {
         DeliveryPartner partner = partnerRepo.findById(partnerId)
                 .orElseThrow(() -> new RuntimeException("Delivery partner not found"));
         return toResponse(partner);
+    }
+
+    /**
+     * Deactivates a delivery partner — blocks their login and marks them inactive.
+     * Their assigned lines are preserved; admin can reassign as needed.
+     */
+    public DeliveryPartnerResponse deactivate(Long partnerId) {
+        DeliveryPartner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new NotFoundException("Delivery partner not found"));
+        if (!partner.isActive()) {
+            throw new ConflictException("Delivery partner is already deactivated");
+        }
+        partner.setActive(false);
+        DeliveryPartner saved = partnerRepo.save(partner);
+        auditLogService.log("PARTNER_DEACTIVATED", "DELIVERY_PARTNER", partnerId,
+                "Delivery partner deactivated: " + partner.getName());
+        return toResponse(saved);
+    }
+
+    /**
+     * Reactivates a previously deactivated delivery partner.
+     */
+    public DeliveryPartnerResponse activate(Long partnerId) {
+        DeliveryPartner partner = partnerRepo.findById(partnerId)
+                .orElseThrow(() -> new NotFoundException("Delivery partner not found"));
+        if (partner.isActive()) {
+            throw new ConflictException("Delivery partner is already active");
+        }
+        partner.setActive(true);
+        DeliveryPartner saved = partnerRepo.save(partner);
+        auditLogService.log("PARTNER_ACTIVATED", "DELIVERY_PARTNER", partnerId,
+                "Delivery partner activated: " + partner.getName());
+        return toResponse(saved);
     }
 
     @Transactional
@@ -289,6 +327,7 @@ public class DeliveryPartnerService {
                 partner.getName(),
                 partner.getPhone(),
                 username,
+                partner.isActive(),
                 lines
         );
     }
