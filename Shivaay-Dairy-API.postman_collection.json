@@ -1,0 +1,935 @@
+{
+  "info": {
+    "name": "Shivaay Dairy Management API",
+    "description": "Complete API collection for the Shivaay Dairy Management System.\n\n**Setup:**\n1. Set `baseUrl` variable to your server (default: http://localhost:8080)\n2. Run **Login as Admin** — token is saved automatically to `adminToken`\n3. Run **Login as Delivery Partner** — token is saved to `partnerToken`\n4. All other requests use these tokens automatically.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "adminToken", "value": "", "type": "string" },
+    { "key": "partnerToken", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\",\n  \"role\": \"ADMIN\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('adminToken', json.token);",
+                  "  console.log('Admin token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Delivery Partner (one-step)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register-partner", "host": ["{{baseUrl}}"], "path": ["auth", "register-partner"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"partner1\",\n  \"password\": \"pass123\",\n  \"name\": \"Raju Sharma\",\n  \"phone\": \"9876500001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login as Delivery Partner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('partnerToken', json.token);",
+                  "  console.log('Partner token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"partner1\",\n  \"password\": \"pass123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📦 Products",
+      "item": [
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/products", "host": ["{{baseUrl}}"], "path": ["products"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Full Cream Milk\",\n  \"unit\": \"LITRE\",\n  \"pricePerUnit\": 60.0\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/products", "host": ["{{baseUrl}}"], "path": ["products"] }
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/products/1", "host": ["{{baseUrl}}"], "path": ["products", "1"] }
+          }
+        },
+        {
+          "name": "Update Product Price",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/products/1/price", "host": ["{{baseUrl}}"], "path": ["products", "1", "price"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPrice\": 65.0,\n  \"effectiveFrom\": \"2026-04-01\",\n  \"reason\": \"Seasonal price increase\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Price History",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/products/1/price-history", "host": ["{{baseUrl}}"], "path": ["products", "1", "price-history"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "👤 Customers",
+      "item": [
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/customers", "host": ["{{baseUrl}}"], "path": ["customers"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ramesh Patil\",\n  \"phone\": \"9876543210\",\n  \"address\": \"12 Gandhi Nagar\",\n  \"societyName\": \"Green Park Society\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Active Customers (paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Customers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers?name=ramesh&society=green",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"],
+              "query": [
+                { "key": "name", "value": "ramesh" },
+                { "key": "society", "value": "green" },
+                { "key": "phone", "value": "", "disabled": true },
+                { "key": "lineId", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List All Customers (including inactive)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/customers/all", "host": ["{{baseUrl}}"], "path": ["customers", "all"] }
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/customers/1", "host": ["{{baseUrl}}"], "path": ["customers", "1"] }
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/customers/1", "host": ["{{baseUrl}}"], "path": ["customers", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ramesh Patil\",\n  \"phone\": \"9876543210\",\n  \"address\": \"15 Gandhi Nagar, Flat 2\",\n  \"societyName\": \"Green Park Society\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Deactivate Customer (soft delete)",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/customers/1/deactivate", "host": ["{{baseUrl}}"], "path": ["customers", "1", "deactivate"] }
+          }
+        },
+        {
+          "name": "Activate Customer",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/customers/1/activate", "host": ["{{baseUrl}}"], "path": ["customers", "1", "activate"] }
+          }
+        },
+        {
+          "name": "Delete Customer (hard delete)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/customers/1", "host": ["{{baseUrl}}"], "path": ["customers", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🛣️ Delivery Lines",
+      "item": [
+        {
+          "name": "Create Line",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/lines", "host": ["{{baseUrl}}"], "path": ["lines"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Line A - Sector 7\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Lines",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/lines", "host": ["{{baseUrl}}"], "path": ["lines"] }
+          }
+        },
+        {
+          "name": "Get Line by ID (with customers in order)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/lines/1", "host": ["{{baseUrl}}"], "path": ["lines", "1"] }
+          }
+        },
+        {
+          "name": "Assign Customer to Line",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/lines/1/assign-customer", "host": ["{{baseUrl}}"], "path": ["lines", "1", "assign-customer"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"sequence\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Customer from Line",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/lines/1/customers/1", "host": ["{{baseUrl}}"], "path": ["lines", "1", "customers", "1"] }
+          }
+        },
+        {
+          "name": "Resequence Customers on Line",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/lines/1/resequence", "host": ["{{baseUrl}}"], "path": ["lines", "1", "resequence"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerIds\": [3, 1, 2]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Line",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/lines/1", "host": ["{{baseUrl}}"], "path": ["lines", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🚴 Delivery Partners",
+      "item": [
+        {
+          "name": "Create Partner Profile (links to existing user)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/delivery-partners", "host": ["{{baseUrl}}"], "path": ["delivery-partners"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 2,\n  \"name\": \"Raju Sharma\",\n  \"phone\": \"9876500001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List All Partners",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/delivery-partners", "host": ["{{baseUrl}}"], "path": ["delivery-partners"] }
+          }
+        },
+        {
+          "name": "Get Partner by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/delivery-partners/1", "host": ["{{baseUrl}}"], "path": ["delivery-partners", "1"] }
+          }
+        },
+        {
+          "name": "Assign Line to Partner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/delivery-partners/1/lines", "host": ["{{baseUrl}}"], "path": ["delivery-partners", "1", "lines"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineId\": 1,\n  \"sequence\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Line from Partner",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/delivery-partners/1/lines/1", "host": ["{{baseUrl}}"], "path": ["delivery-partners", "1", "lines", "1"] }
+          }
+        },
+        {
+          "name": "Resequence Partner's Lines",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/delivery-partners/1/lines/resequence", "host": ["{{baseUrl}}"], "path": ["delivery-partners", "1", "lines", "resequence"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lineIds\": [2, 1, 3]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Partner's Daily List (Admin view by ID)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/delivery-partners/1/daily-list?date=2026-03-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-partners", "1", "daily-list"],
+              "query": [{ "key": "date", "value": "2026-03-27" }]
+            }
+          }
+        },
+        {
+          "name": "Get My Daily List (Partner — uses JWT)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{partnerToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/delivery-partners/me/daily-list?date=2026-03-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["delivery-partners", "me", "daily-list"],
+              "query": [{ "key": "date", "value": "2026-03-27" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📋 Subscriptions",
+      "item": [
+        {
+          "name": "Create Subscription (DAILY)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions", "host": ["{{baseUrl}}"], "path": ["subscriptions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"productId\": 1,\n  \"quantity\": 1.5,\n  \"frequency\": \"DAILY\",\n  \"deliverySlot\": \"MORNING\",\n  \"startDate\": \"2026-04-01\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Subscription (ALTERNATE_DAY)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions", "host": ["{{baseUrl}}"], "path": ["subscriptions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 2,\n  \"productId\": 1,\n  \"quantity\": 2.0,\n  \"frequency\": \"ALTERNATE_DAY\",\n  \"deliverySlot\": \"MORNING\",\n  \"startDate\": \"2026-04-01\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Subscription (CUSTOM_WEEKLY)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions", "host": ["{{baseUrl}}"], "path": ["subscriptions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 3,\n  \"productId\": 1,\n  \"quantity\": 1.0,\n  \"frequency\": \"CUSTOM_WEEKLY\",\n  \"deliverySlot\": \"EVENING\",\n  \"deliveryDays\": [\"MONDAY\", \"WEDNESDAY\", \"FRIDAY\"],\n  \"startDate\": \"2026-04-01\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Subscription by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/subscriptions/1", "host": ["{{baseUrl}}"], "path": ["subscriptions", "1"] }
+          }
+        },
+        {
+          "name": "Get All Subscriptions for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/subscriptions/customer/1", "host": ["{{baseUrl}}"], "path": ["subscriptions", "customer", "1"] }
+          }
+        },
+        {
+          "name": "Get Active Subscriptions for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/subscriptions/customer/1/active", "host": ["{{baseUrl}}"], "path": ["subscriptions", "customer", "1", "active"] }
+          }
+        },
+        {
+          "name": "Modify Subscription (mid-cycle)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions/1/modify", "host": ["{{baseUrl}}"], "path": ["subscriptions", "1", "modify"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2.0,\n  \"frequency\": \"DAILY\",\n  \"deliverySlot\": \"MORNING\",\n  \"effectiveDate\": \"2026-04-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/subscriptions/1/cancel", "host": ["{{baseUrl}}"], "path": ["subscriptions", "1", "cancel"] }
+          }
+        },
+        {
+          "name": "Pause Subscription",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/subscriptions/1/pause", "host": ["{{baseUrl}}"], "path": ["subscriptions", "1", "pause"] }
+          }
+        },
+        {
+          "name": "Resume Subscription",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{baseUrl}}/subscriptions/1/resume", "host": ["{{baseUrl}}"], "path": ["subscriptions", "1", "resume"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🎉 Holidays",
+      "item": [
+        {
+          "name": "Create Holiday",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/holidays", "host": ["{{baseUrl}}"], "path": ["holidays"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-08-15\",\n  \"reason\": \"Independence Day\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Holidays",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/holidays", "host": ["{{baseUrl}}"], "path": ["holidays"] }
+          }
+        },
+        {
+          "name": "Get Holiday by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/holidays/1", "host": ["{{baseUrl}}"], "path": ["holidays", "1"] }
+          }
+        },
+        {
+          "name": "Delete Holiday",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/holidays/1", "host": ["{{baseUrl}}"], "path": ["holidays", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔄 Delivery Overrides",
+      "item": [
+        {
+          "name": "Create Override (PAUSED for a day)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/delivery-overrides", "host": ["{{baseUrl}}"], "path": ["delivery-overrides"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"date\": \"2026-04-05\",\n  \"overrideType\": \"PAUSED\",\n  \"reason\": \"Customer on vacation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Override (QUANTITY_MODIFIED for a day)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/delivery-overrides", "host": ["{{baseUrl}}"], "path": ["delivery-overrides"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"date\": \"2026-04-10\",\n  \"overrideType\": \"QUANTITY_MODIFIED\",\n  \"modifiedQuantity\": 3.0,\n  \"reason\": \"Guest at home\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Overrides for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/delivery-overrides/customer/1", "host": ["{{baseUrl}}"], "path": ["delivery-overrides", "customer", "1"] }
+          }
+        },
+        {
+          "name": "Delete Override",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/delivery-overrides/1", "host": ["{{baseUrl}}"], "path": ["delivery-overrides", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🚚 Deliveries",
+      "item": [
+        {
+          "name": "Generate Deliveries for Today",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/deliveries/generate", "host": ["{{baseUrl}}"], "path": ["deliveries", "generate"] }
+          }
+        },
+        {
+          "name": "Generate Deliveries for Specific Date",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/deliveries/generate?date=2026-04-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["deliveries", "generate"],
+              "query": [{ "key": "date", "value": "2026-04-01" }]
+            }
+          }
+        },
+        {
+          "name": "Get Deliveries by Date (paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/deliveries/date/2026-03-27?page=0&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["deliveries", "date", "2026-03-27"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Deliveries for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/deliveries/customer/1", "host": ["{{baseUrl}}"], "path": ["deliveries", "customer", "1"] }
+          }
+        },
+        {
+          "name": "Get Delivery by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/deliveries/1", "host": ["{{baseUrl}}"], "path": ["deliveries", "1"] }
+          }
+        },
+        {
+          "name": "Update Delivery Status (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/deliveries/1/status", "host": ["{{baseUrl}}"], "path": ["deliveries", "1", "status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Delivery Status (Partner — uses partner token)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{partnerToken}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/deliveries/1/status", "host": ["{{baseUrl}}"], "path": ["deliveries", "1", "status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Mark Delivery as Mistake (voids + recalculates bill)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/deliveries/1/mark-as-mistake", "host": ["{{baseUrl}}"], "path": ["deliveries", "1", "mark-as-mistake"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "➕ Addon Orders",
+      "item": [
+        {
+          "name": "Create Addon Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/orders/addon", "host": ["{{baseUrl}}"], "path": ["orders", "addon"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 1,\n  \"productId\": 1,\n  \"quantity\": 2.0,\n  \"deliveryDate\": \"2026-04-05\",\n  \"deliverySlot\": \"MORNING\",\n  \"notes\": \"Guest visiting, extra milk needed\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Addon Order by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/orders/addon/1", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "1"] }
+          }
+        },
+        {
+          "name": "Get Addon Orders for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/orders/addon/customer/1", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "customer", "1"] }
+          }
+        },
+        {
+          "name": "Get Addon Orders by Date",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/orders/addon/date/2026-04-05", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "date", "2026-04-05"] }
+          }
+        },
+        {
+          "name": "Update Addon Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/orders/addon/1/status", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "1", "status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Mark Addon Order as Mistake",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/orders/addon/1/mark-as-mistake", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "1", "mark-as-mistake"] }
+          }
+        },
+        {
+          "name": "Delete Addon Order",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/orders/addon/1", "host": ["{{baseUrl}}"], "path": ["orders", "addon", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "💰 Billing",
+      "item": [
+        {
+          "name": "Generate Bill for Customer",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/billing/generate?customerId=1&month=3&year=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["billing", "generate"],
+              "query": [
+                { "key": "customerId", "value": "1" },
+                { "key": "month", "value": "3" },
+                { "key": "year", "value": "2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bill by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/billing/1", "host": ["{{baseUrl}}"], "path": ["billing", "1"] }
+          }
+        },
+        {
+          "name": "Get Bill Detail (line items)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/billing/1/detail", "host": ["{{baseUrl}}"], "path": ["billing", "1", "detail"] }
+          }
+        },
+        {
+          "name": "Get All Bills for Customer",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/billing/customer/1", "host": ["{{baseUrl}}"], "path": ["billing", "customer", "1"] }
+          }
+        },
+        {
+          "name": "Get Pending Bills (paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/billing/pending?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["billing", "pending"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bills by Month (paginated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/billing/month?month=3&year=2026&page=0&size=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["billing", "month"],
+              "query": [
+                { "key": "month", "value": "3" },
+                { "key": "year", "value": "2026" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Payment (full or partial)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/billing/1/payments", "host": ["{{baseUrl}}"], "path": ["billing", "1", "payments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500.0,\n  \"mode\": \"UPI\",\n  \"referenceNumber\": \"TXN9823761\",\n  \"note\": \"Partial payment, rest next week\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Payment History for Bill",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/billing/1/payments", "host": ["{{baseUrl}}"], "path": ["billing", "1", "payments"] }
+          }
+        },
+        {
+          "name": "Add Bill Adjustment (deduction)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/billing/1/adjustments", "host": ["{{baseUrl}}"], "path": ["billing", "1", "adjustments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustmentType\": \"DISPUTED_DELIVERY\",\n  \"amount\": -120.0,\n  \"description\": \"Customer disputed Mar 15 delivery — 2L removed\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add Bill Adjustment (surcharge)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/billing/1/adjustments", "host": ["{{baseUrl}}"], "path": ["billing", "1", "adjustments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustmentType\": \"LATE_PAYMENT_FEE\",\n  \"amount\": 50.0,\n  \"description\": \"Late payment fee for Feb overdue\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Bill Adjustments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/billing/1/adjustments", "host": ["{{baseUrl}}"], "path": ["billing", "1", "adjustments"] }
+          }
+        },
+        {
+          "name": "Remove Bill Adjustment",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/billing/1/adjustments/1", "host": ["{{baseUrl}}"], "path": ["billing", "1", "adjustments", "1"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📊 Reports",
+      "item": [
+        {
+          "name": "Daily Delivery Report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/daily?date=2026-03-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "daily"],
+              "query": [{ "key": "date", "value": "2026-03-27" }]
+            }
+          }
+        },
+        {
+          "name": "Monthly Revenue Report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/revenue?month=3&year=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "revenue"],
+              "query": [
+                { "key": "month", "value": "3" },
+                { "key": "year", "value": "2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pending Payments Report",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/reports/pending-payments", "host": ["{{baseUrl}}"], "path": ["reports", "pending-payments"] }
+          }
+        },
+        {
+          "name": "Customer Monthly Report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/reports/customer/1/monthly?month=3&year=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "customer", "1", "monthly"],
+              "query": [
+                { "key": "month", "value": "3" },
+                { "key": "year", "value": "2026" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+
+  ]
+}
