@@ -2,10 +2,12 @@ package com.dairy.dairy_management.service;
 
 import com.dairy.dairy_management.dto.BulkBillResult;
 import com.dairy.dairy_management.dto.GenerateDeliveryResult;
+import com.dairy.dairy_management.repository.RefreshTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -35,13 +37,16 @@ public class ScheduledJobService {
     private final DeliveryService deliveryService;
     private final BillingService billingService;
     private final AuditLogService auditLogService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public ScheduledJobService(DeliveryService deliveryService,
                                BillingService billingService,
-                               AuditLogService auditLogService) {
+                               AuditLogService auditLogService,
+                               RefreshTokenRepository refreshTokenRepository) {
         this.deliveryService = deliveryService;
         this.billingService = billingService;
         this.auditLogService = auditLogService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     /**
@@ -101,5 +106,18 @@ public class ScheduledJobService {
             auditLogService.log("AUTO_BILL_GENERATED", "BILLING", null,
                     "FAILED for " + month + "/" + year + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Weekly cleanup of expired refresh tokens from the DB.
+     * Runs every Sunday at 03:00 AM.
+     * Prevents the refresh_tokens table from growing indefinitely.
+     */
+    @Transactional
+    @Scheduled(cron = "0 0 3 * * SUN")
+    public void purgeExpiredRefreshTokens() {
+        log.info("[SCHEDULER] Purging expired refresh tokens");
+        refreshTokenRepository.deleteAllExpiredBefore(java.time.LocalDateTime.now());
+        log.info("[SCHEDULER] Expired refresh token purge complete");
     }
 }
