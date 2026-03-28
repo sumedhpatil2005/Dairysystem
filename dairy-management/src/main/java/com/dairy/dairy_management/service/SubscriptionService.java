@@ -48,6 +48,14 @@ public class SubscriptionService {
         // #17: Validate deliveryDays against frequency
         validateDeliveryDays(request.getFrequency(), request.getDeliveryDays());
 
+        // #8: Block duplicate active subscription for same customer + product + slot
+        if (repo.existsByCustomerIdAndProductIdAndDeliverySlotAndEndDateIsNull(
+                request.getCustomerId(), request.getProductId(), request.getDeliverySlot())) {
+            throw new ConflictException(
+                    "An active subscription for this product and delivery slot already exists. " +
+                    "Modify the existing subscription or cancel it before creating a new one.");
+        }
+
         Subscription sub = new Subscription();
         sub.setCustomer(customer);
         sub.setProduct(product);

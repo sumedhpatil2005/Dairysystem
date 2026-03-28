@@ -289,6 +289,34 @@ public class BillingService {
         return billingRepo.findByCustomerId(customerId);
     }
 
+    /**
+     * Returns the total outstanding balance for a customer across all unpaid months.
+     * Includes a per-bill breakdown so the admin can see exactly which months are unpaid.
+     */
+    public com.dairy.dairy_management.dto.CustomerBalanceResponse getCustomerBalance(Long customerId) {
+        Customer customer = customerRepo.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+        List<Billing> pendingBills = billingRepo.findByCustomerIdAndStatus(customerId, "PENDING");
+
+        double totalOutstanding = pendingBills.stream()
+                .mapToDouble(Billing::getRemainingAmount)
+                .sum();
+
+        List<com.dairy.dairy_management.dto.CustomerBalanceResponse.BillSummary> summaries =
+                pendingBills.stream()
+                        .sorted(java.util.Comparator.comparingInt(Billing::getYear)
+                                .thenComparingInt(Billing::getMonth))
+                        .map(b -> new com.dairy.dairy_management.dto.CustomerBalanceResponse.BillSummary(
+                                b.getId(), b.getMonth(), b.getYear(),
+                                b.getTotalAmount(), b.getPaidAmount(), b.getRemainingAmount()))
+                        .toList();
+
+        return new com.dairy.dairy_management.dto.CustomerBalanceResponse(
+                customer.getId(), customer.getName(), customer.getPhone(),
+                pendingBills.size(), totalOutstanding, summaries);
+    }
+
     public Page<Billing> getPendingBills(Pageable pageable) {
         return billingRepo.findByStatus("PENDING", pageable);
     }

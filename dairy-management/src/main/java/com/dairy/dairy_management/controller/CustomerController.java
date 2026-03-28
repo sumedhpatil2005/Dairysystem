@@ -1,6 +1,8 @@
 package com.dairy.dairy_management.controller;
 
+import com.dairy.dairy_management.dto.CustomerBalanceResponse;
 import com.dairy.dairy_management.entity.Customer;
+import com.dairy.dairy_management.service.BillingService;
 import com.dairy.dairy_management.service.CustomerService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -15,9 +17,11 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService service;
+    private final BillingService billingService;
 
-    public CustomerController(CustomerService service) {
+    public CustomerController(CustomerService service, BillingService billingService) {
         this.service = service;
+        this.billingService = billingService;
     }
 
     @PostMapping
@@ -90,5 +94,15 @@ public class CustomerController {
     public String delete(@PathVariable Long id) {
         service.delete(id);
         return "Customer deleted successfully";
+    }
+
+    /**
+     * Total outstanding balance for a customer across all unpaid months.
+     * Includes a per-bill breakdown sorted by year/month.
+     * Example: GET /customers/1/balance
+     */
+    @GetMapping("/{id}/balance")
+    public CustomerBalanceResponse getBalance(@PathVariable Long id) {
+        return billingService.getCustomerBalance(id);
     }
 }

@@ -73,6 +73,15 @@ public class DeliveryPartnerController {
     }
 
     /**
+     * Delivery partner fetches their own profile using their JWT token.
+     * Example: GET /delivery-partners/me
+     */
+    @GetMapping("/me")
+    public ResponseEntity<DeliveryPartnerResponse> getMyProfile(Authentication authentication) {
+        return ResponseEntity.ok(service.getPartnerProfileByUsername(authentication.getName()));
+    }
+
+    /**
      * Delivery partner gets their OWN daily list using their JWT token — no need to know their partner ID.
      * Example: GET /delivery-partners/me/daily-list
      * Example: GET /delivery-partners/me/daily-list?date=2026-03-27
