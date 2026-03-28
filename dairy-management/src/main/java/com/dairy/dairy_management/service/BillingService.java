@@ -83,9 +83,14 @@ public class BillingService {
         LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
 
         // --- Subscription deliveries (use historically accurate price) ---
-        List<Delivery> deliveries = deliveryRepo
-                .findBySubscription_CustomerIdAndDeliveryDateBetween(customerId, start, end)
-                .stream()
+        List<Delivery> allDeliveries = deliveryRepo
+                .findBySubscription_CustomerIdAndDeliveryDateBetween(customerId, start, end);
+
+        long pendingDeliveriesCount = allDeliveries.stream()
+                .filter(d -> "PENDING".equals(d.getStatus()))
+                .count();
+
+        List<Delivery> deliveries = allDeliveries.stream()
                 .filter(d -> "DELIVERED".equals(d.getStatus()))
                 .toList();
 
@@ -147,11 +152,12 @@ public class BillingService {
         Billing saved = billingRepo.save(bill);
 
         auditLogService.log("BILL_GENERATED", "BILLING", saved.getId(),
-                String.format("Bill generated for customer %d (%s) — %d/%d | Total=%.2f",
-                        customerId, customer.getName(), month, year, total));
+                String.format("Bill generated for customer %d (%s) — %d/%d | Total=%.2f PendingDeliveries=%d",
+                        customerId, customer.getName(), month, year, total, pendingDeliveriesCount));
 
         List<BillAdjustment> adjustments = adjustmentRepo.findByBillId(saved.getId());
-        return toResponse(saved, subItems, addonItems, adjustments);
+        return toResponse(saved, subItems, addonItems, adjustments,
+                (int) pendingDeliveriesCount, getPreviousPendingStale(customerId, month, year, prevPending));
     }
 
     /**
@@ -234,7 +240,13 @@ public class BillingService {
         }
 
         List<BillAdjustment> adjustments = adjustmentRepo.findByBillId(billId);
-        return toResponse(bill, subItems, addonItems, adjustments);
+
+        long pendingCount = deliveryRepo
+                .findBySubscription_CustomerIdAndDeliveryDateBetween(customerId, start, end)
+                .stream().filter(d -> "PENDING".equals(d.getStatus())).count();
+
+        boolean stale = getPreviousPendingStale(customerId, month, year, bill.getPreviousPendingAmount());
+        return toResponse(bill, subItems, addonItems, adjustments, (int) pendingCount, stale);
     }
 
     // --- Adjustment operations ---
@@ -368,10 +380,23 @@ public class BillingService {
                 .orElse(0.0);
     }
 
+    /**
+     * Returns true if the previous month's actual remaining amount differs from
+     * what was snapshotted in this bill's previousPendingAmount.
+     * This means a payment was recorded on the previous month AFTER this bill was generated —
+     * admin should regenerate this bill to correct the carried-forward amount.
+     */
+    private boolean getPreviousPendingStale(Long customerId, int month, int year, double snapshotted) {
+        double actual = getPreviousMonthPending(customerId, month, year);
+        return Math.abs(actual - snapshotted) > 0.001;
+    }
+
     private BillResponse toResponse(Billing bill,
                                      List<BillResponse.LineItem> subItems,
                                      List<BillResponse.LineItem> addonItems,
-                                     List<BillAdjustment> adjustments) {
+                                     List<BillAdjustment> adjustments,
+                                     int pendingDeliveriesCount,
+                                     boolean previousPendingStale) {
         BillResponse r = new BillResponse();
         r.setBillId(bill.getId());
         r.setCustomerId(bill.getCustomer().getId());
@@ -389,6 +414,8 @@ public class BillingService {
         r.setPaidAmount(bill.getPaidAmount());
         r.setRemainingAmount(bill.getRemainingAmount());
         r.setStatus(bill.getStatus());
+        r.setPendingDeliveriesCount(pendingDeliveriesCount);
+        r.setPreviousPendingStale(previousPendingStale);
         return r;
     }
 }
