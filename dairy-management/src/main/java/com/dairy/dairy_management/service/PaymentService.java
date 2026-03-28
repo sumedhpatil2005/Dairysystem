@@ -67,10 +67,16 @@ public class PaymentService {
             throw new IllegalArgumentException("Payment amount must be greater than 0");
         }
 
-        if (request.getAmount() > remaining) {
+        // Allow overpayment — in manual dairy operations, customers often pay a round figure
+        // (e.g., remaining=₹1850, customer pays ₹2000). The excess ₹150 is recorded
+        // and will be visible as a negative remainingAmount (credit) on this bill,
+        // which the admin can use as an adjustment on the next month's bill.
+        if (request.getAmount() > remaining * 1.5) {
+            // Sanity check: block payments more than 150% of remaining to catch typos
             throw new IllegalArgumentException(
                     "Payment amount (" + request.getAmount() +
-                    ") exceeds remaining balance (" + remaining + ")");
+                    ") is more than 150% of remaining balance (" + remaining + "). " +
+                    "If intentional, split into two payments or add a note.");
         }
 
         Payment payment = new Payment();
@@ -86,6 +92,7 @@ public class PaymentService {
 
         double newPaid = bill.getPaidAmount() + request.getAmount();
         bill.setPaidAmount(newPaid);
+        // remainingAmount can go negative (credit) — that's intentional for overpayment
         bill.setRemainingAmount(bill.getTotalAmount() - newPaid);
         bill.setStatus(bill.getRemainingAmount() <= 0 ? "PAID" : "PENDING");
         billingRepo.save(bill);

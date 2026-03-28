@@ -39,6 +39,14 @@ public class BillResponse {
     private double remainingAmount;
     private String status; // PENDING / PAID
 
+    // Number of deliveries still in PENDING status for this month — not billed yet.
+    // If > 0, admin should ensure partner marks them before treating this bill as final.
+    private int pendingDeliveriesCount;
+
+    // True if previous month's bill was paid AFTER this bill was generated,
+    // meaning previousPendingAmount here may be stale — regenerate to correct it.
+    private boolean previousPendingStale;
+
     @Data
     public static class LineItem {
         private LocalDate date;
