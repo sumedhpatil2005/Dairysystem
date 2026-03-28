@@ -401,6 +401,8 @@ public class BillingService {
         r.setBillId(bill.getId());
         r.setCustomerId(bill.getCustomer().getId());
         r.setCustomerName(bill.getCustomer().getName());
+        r.setCustomerPhone(bill.getCustomer().getPhone());
+        r.setCustomerAddress(bill.getCustomer().getAddress());
         r.setMonth(bill.getMonth());
         r.setYear(bill.getYear());
         r.setSubscriptionItems(subItems);

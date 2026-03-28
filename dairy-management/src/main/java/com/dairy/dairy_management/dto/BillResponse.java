@@ -39,6 +39,10 @@ public class BillResponse {
     private double remainingAmount;
     private String status; // PENDING / PAID
 
+    // Customer contact info (populated for PDF generation)
+    private String customerPhone;
+    private String customerAddress;
+
     // Number of deliveries still in PENDING status for this month — not billed yet.
     // If > 0, admin should ensure partner marks them before treating this bill as final.
     private int pendingDeliveriesCount;
